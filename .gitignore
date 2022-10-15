@@ -1,0 +1,12 @@
+*
+
+!.gitignore
+!CHANGELOG.md
+!README.md
+!build.zig
+!src
+!src/assets
+!src/assets/font.ttf
+!src/c.zig
+!src/game.zig
+!src/main.zig
