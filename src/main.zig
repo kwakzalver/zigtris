@@ -726,10 +726,6 @@ var Grid = [1][COLUMNS]PieceType{
     .{PieceType.None} ** COLUMNS,
 } ** ROWS;
 
-var View = [1][COLUMNS]PieceType{
-    .{PieceType.None} ** COLUMNS,
-} ** ROWS;
-
 var game_timer: std.time.Timer = undefined;
 
 // dummy placeholder, just call next_piece at the start
@@ -871,12 +867,6 @@ fn clear_grid() void {
             Grid[r][c] = PieceType.None;
         }
     }
-
-    for (View) |Row, r| {
-        for (Row) |_, c| {
-            View[r][c] = PieceType.None;
-        }
-    }
 }
 
 fn reset_game() void {
@@ -1016,28 +1006,6 @@ fn clear_lines() u8 {
         }
     }
     return cleared;
-}
-
-fn update_view() void {
-    // the grid itself
-    for (Grid) |Row, r| {
-        for (Row) |e, c| {
-            View[r][c] = e;
-        }
-    }
-    // materialize current piece
-    const data = generate_piece(current_piece.type, current_piece.rotation);
-    const c = current_piece.col;
-    const r = current_piece.row;
-    for (data) |drow, dr| {
-        for (drow) |e, dc| {
-            if (e != PieceType.None) {
-                const col = @intCast(usize, c + @intCast(i8, dc));
-                const row = @intCast(usize, r + @intCast(i8, dr));
-                View[row][col] = e;
-            }
-        }
-    }
 }
 
 // simple SDL renderer wrapper
@@ -1343,6 +1311,7 @@ const Keyboard = struct {
 
     pub fn handle_input(self: *Self, renderer: *Renderer) bool {
         var event: C.SDL_Event = undefined;
+
         while (C.SDL_PollEvent(&event) != 0) {
             switch (event.type) {
                 C.SDL_QUIT => {
@@ -1445,7 +1414,10 @@ fn sdl2_ttf() anyerror!*C.TTF_Font {
         var last_font: *C.TTF_Font = undefined;
     };
 
-    const font_memory = C.SDL_RWFromConstMem(FONT_BYTES, FONT_BYTES.len) orelse {
+    const font_memory = C.SDL_RWFromConstMem(
+        FONT_BYTES,
+        FONT_BYTES.len,
+    ) orelse {
         C.SDL_Log("Unable to SDL_RWFromConstMem: %s", C.SDL_GetError());
         return error.SDLInitializationFailed;
     };
@@ -1455,7 +1427,11 @@ fn sdl2_ttf() anyerror!*C.TTF_Font {
         return error.SDLInitializationFailed;
     }
 
-    const font: *C.TTF_Font = C.TTF_OpenFontRW(font_memory, 0, @intCast(i32, SIZE)) orelse {
+    const font: *C.TTF_Font = C.TTF_OpenFontRW(
+        font_memory,
+        0,
+        @intCast(i32, SIZE),
+    ) orelse {
         C.SDL_Log("Unable to TTF_OpenFontRW: %s", C.TTF_GetError());
         return error.SDLInitializationFailed;
     };
