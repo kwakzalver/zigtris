@@ -11,7 +11,7 @@ pub fn build(b: *std.build.Builder) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const exe = b.addExecutable("new-tetris", "src/main.zig");
+    const exe = b.addExecutable("zigtris", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.linkSystemLibrary("SDL2");
