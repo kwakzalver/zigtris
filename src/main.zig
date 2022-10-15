@@ -736,18 +736,13 @@ var current_piece = Piece{
     .row = 0,
 };
 
-var current_holding = Piece{
-    .type = PieceType.None,
-    .rotation = Rotation.None,
-    .col = 3,
-    .row = 0,
-};
+var current_holding = PieceType.None;
 
-var current_queue = [4]Piece{
-    Piece{ .type = PieceType.None, .rotation = Rotation.None, .col = 3, .row = 0 },
-    Piece{ .type = PieceType.None, .rotation = Rotation.None, .col = 3, .row = 0 },
-    Piece{ .type = PieceType.None, .rotation = Rotation.None, .col = 3, .row = 0 },
-    Piece{ .type = PieceType.None, .rotation = Rotation.None, .col = 3, .row = 0 },
+var current_queue = [4]PieceType{
+    PieceType.None,
+    PieceType.None,
+    PieceType.None,
+    PieceType.None,
 };
 
 var lines_cleared: u64 = 0;
@@ -846,19 +841,17 @@ fn materialize() void {
 }
 
 fn next_piece() void {
-    current_piece = current_queue[0];
+    current_piece = Piece.from_piecetype(current_queue[0]);
     current_queue[0] = current_queue[1];
     current_queue[1] = current_queue[2];
     current_queue[2] = current_queue[3];
-    current_queue[3] = Piece.from_piecetype(PieceType.random());
+    current_queue[3] = PieceType.random();
 }
 
 fn hold_piece() void {
-    std.mem.swap(Piece, &current_piece, &current_holding);
-    // kappa
-    current_holding.col = 3;
-    current_holding.row = 0;
-    current_holding.rotation = Rotation.None;
+    const t = current_piece.type;
+    current_piece = Piece.from_piecetype(current_holding);
+    current_holding = t;
 }
 
 fn clear_grid() void {
@@ -876,13 +869,12 @@ fn reset_game() void {
     lines_cleared = 0;
 
     current_piece = Piece.from_piecetype(PieceType.random());
-    current_holding = Piece.from_piecetype(PieceType.random());
-    current_queue[0] = Piece.from_piecetype(PieceType.random());
-    current_queue[1] = Piece.from_piecetype(PieceType.random());
-    current_queue[2] = Piece.from_piecetype(PieceType.random());
-    current_queue[3] = Piece.from_piecetype(PieceType.random());
+    current_holding = PieceType.random();
+    current_queue[0] = PieceType.random();
+    current_queue[1] = PieceType.random();
+    current_queue[2] = PieceType.random();
+    current_queue[3] = PieceType.random();
 
-    // reset timer
     game_timer.reset();
 
     sprint_time = undefined;
@@ -915,31 +907,34 @@ const Delta = struct {
 };
 
 fn unstuck() bool {
-    const deltas = [16]Delta{
-        // same level
-        .{ .row = 0, .col = 0 },
-        .{ .row = 0, .col = 1 },
-        .{ .row = 0, .col = -1 },
-        // one deeper
-        .{ .row = 1, .col = 0 },
-        .{ .row = 1, .col = 1 },
-        .{ .row = 1, .col = -1 },
-        // two deeper
-        .{ .row = 2, .col = 0 },
-        .{ .row = 2, .col = 1 },
-        .{ .row = 2, .col = -1 },
-        .{ .row = 2, .col = 2 },
-        .{ .row = 2, .col = -2 },
-        // back up
-        .{ .row = -1, .col = 0 },
-        .{ .row = -1, .col = 1 },
-        .{ .row = -1, .col = -1 },
-        .{ .row = -1, .col = 2 },
-        .{ .row = -1, .col = -2 },
+    const S = struct {
+        const deltas = [16]Delta{
+            // same level
+            .{ .row = 0, .col = 0 },
+            .{ .row = 0, .col = 1 },
+            .{ .row = 0, .col = -1 },
+            // one deeper
+            .{ .row = 1, .col = 0 },
+            .{ .row = 1, .col = 1 },
+            .{ .row = 1, .col = -1 },
+            // two deeper
+            .{ .row = 2, .col = 0 },
+            .{ .row = 2, .col = 1 },
+            .{ .row = 2, .col = -1 },
+            .{ .row = 2, .col = 2 },
+            .{ .row = 2, .col = -2 },
+            // back up
+            .{ .row = -1, .col = 0 },
+            .{ .row = -1, .col = 1 },
+            .{ .row = -1, .col = -1 },
+            .{ .row = -1, .col = 2 },
+            .{ .row = -1, .col = -2 },
+        };
     };
+
     const col = current_piece.col;
     const row = current_piece.row;
-    for (deltas) |delta| {
+    for (S.deltas) |delta| {
         current_piece.col += delta.col;
         current_piece.row += delta.row;
         if (!collision()) {
@@ -1085,7 +1080,7 @@ const Renderer = struct {
 
         var local_buffer: [64]u8 = .{0} ** 64;
         var buf = local_buffer[0..];
-        var col_offset = (BORDER + SIZE) * COLUMNS + 2 * SIZE + (SIZE >> 1);
+        var col_offset = (BORDER + SIZE) * COLUMNS + 3 * SIZE;
         var row_offset = (BORDER + SIZE) * (ROWS - 6);
         _ = std.fmt.bufPrint(buf, "{any}", .{lines}) catch {};
         const c_string = buf;
@@ -1145,7 +1140,7 @@ const Renderer = struct {
 
         var local_buffer: [64]u8 = .{0} ** 64;
         var buf = local_buffer[0..];
-        var col_offset = (BORDER + SIZE) * COLUMNS + 2 * SIZE + (SIZE >> 1);
+        var col_offset = (BORDER + SIZE) * COLUMNS + 3 * SIZE;
         var row_offset = (BORDER + SIZE) * (ROWS - 4);
         _ = std.fmt.bufPrint(buf, "{any}", .{seconds}) catch {};
         const c_string = buf;
@@ -1538,18 +1533,18 @@ fn sdl2_game() anyerror!void {
             for (current_queue) |p, dr| {
                 const row_offset = @intCast(i8, 1 + 3 * dr);
                 r.draw_tetromino(
-                    p.col + COLUMNS - 2,
+                    COLUMNS + 2,
                     row_offset,
-                    p.type,
-                    p.rotation,
+                    p,
+                    Rotation.None,
                 );
             }
 
             r.draw_tetromino(
-                current_holding.col + COLUMNS - 2,
+                COLUMNS + 2,
                 @intCast(i8, 1 + 4 * current_queue.len),
-                current_holding.type,
-                current_holding.rotation,
+                current_holding,
+                Rotation.None,
             );
 
             r.show();
