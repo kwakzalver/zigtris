@@ -367,6 +367,19 @@ const Colorscheme = struct {
     }
 };
 
+const Style = enum {
+    const Self = @This();
+    Solid,
+    Gridless,
+    Edges,
+
+    const iter = [_]Style{
+        Style.Solid,
+        Style.Gridless,
+        Style.Edges,
+    };
+};
+
 fn generate_piece(t: PieceType, r: Rotation) [4][4]PieceType {
     const B = PieceType.None;
     const I = PieceType.I;
@@ -841,6 +854,7 @@ var pieces_locked: u64 = 0;
 var sprint_time: u64 = undefined;
 var sprint_finished: bool = false;
 var current_colorscheme = Colorscheme.habamax();
+var current_style = Style.Solid;
 
 fn collision() bool {
     const row = current_piece.row;
@@ -1133,12 +1147,41 @@ const Renderer = struct {
     }
 
     pub fn fill_square(self: *Self, x: usize, y: usize) void {
-        self.fill_rectangle(
-            BORDER + SIZE + x * (BORDER + SIZE),
-            BORDER + SIZE + y * (BORDER + SIZE),
-            SIZE,
-            SIZE,
-        );
+        switch (current_style) {
+            Style.Solid => {
+                self.fill_rectangle(
+                    BORDER + SIZE + x * (BORDER + SIZE),
+                    BORDER + SIZE + y * (BORDER + SIZE),
+                    SIZE,
+                    SIZE,
+                );
+            },
+            Style.Gridless => {
+                self.fill_rectangle(
+                    SIZE + x * (BORDER + SIZE),
+                    SIZE + y * (BORDER + SIZE),
+                    SIZE + BORDER,
+                    SIZE + BORDER,
+                );
+            },
+            Style.Edges => {
+                const c = self.color;
+                self.fill_rectangle(
+                    BORDER + SIZE + x * (BORDER + SIZE),
+                    BORDER + SIZE + y * (BORDER + SIZE),
+                    SIZE,
+                    SIZE,
+                );
+                self.set_color(current_colorscheme.background_dark);
+                self.fill_rectangle(
+                    BORDER + SIZE + x * (BORDER + SIZE) + (SIZE >> 2),
+                    BORDER + SIZE + y * (BORDER + SIZE) + (SIZE >> 2),
+                    SIZE >> 1,
+                    SIZE >> 1,
+                );
+                self.set_color(c);
+            },
+        }
     }
 
     pub fn draw_dot(self: *Self, x: usize, y: usize) void {
@@ -1331,16 +1374,7 @@ const Renderer = struct {
             ratio,
         );
         self.set_color(piece_color);
-        const data = generate_piece(p, r);
-        for (data) |drow, dr| {
-            for (drow) |e, dc| {
-                if (e != PieceType.None) {
-                    const ci = @intCast(usize, col + @intCast(i8, dc));
-                    const ri = @intCast(usize, row + @intCast(i8, dr));
-                    self.fill_square(ci, ri);
-                }
-            }
-        }
+        self.draw_tetromino(col, row, p, r);
     }
 
     pub fn draw_tetromino(
@@ -1350,8 +1384,6 @@ const Renderer = struct {
         p: PieceType,
         r: Rotation,
     ) void {
-        const piece_color = current_colorscheme.from_piecetype(p);
-        self.set_color(piece_color);
         const data = generate_piece(p, r);
         for (data) |drow, dr| {
             for (drow) |e, dc| {
@@ -1457,6 +1489,18 @@ const Keyboard = struct {
 
         if (self.single(C.SDL_SCANCODE_BACKSPACE)) {
             current_colorscheme = current_colorscheme.previous();
+        }
+
+        if (self.single(C.SDL_SCANCODE_1)) {
+            current_style = Style.iter[0];
+        }
+
+        if (self.single(C.SDL_SCANCODE_2)) {
+            current_style = Style.iter[1];
+        }
+
+        if (self.single(C.SDL_SCANCODE_3)) {
+            current_style = Style.iter[2];
         }
 
         if (self.single(C.SDL_SCANCODE_R)) {
@@ -1637,6 +1681,7 @@ fn sdl2_game() anyerror!void {
                 current_piece.rotation,
             );
 
+            r.set_color(current_colorscheme.from_piecetype(current_piece.type));
             r.draw_tetromino(
                 current_piece.col,
                 current_piece.row,
@@ -1646,6 +1691,7 @@ fn sdl2_game() anyerror!void {
 
             for (current_queue) |p, dr| {
                 const row_offset = @intCast(i8, 1 + 3 * dr);
+                r.set_color(current_colorscheme.from_piecetype(p));
                 r.draw_tetromino(
                     COLUMNS + 2,
                     row_offset,
@@ -1654,6 +1700,7 @@ fn sdl2_game() anyerror!void {
                 );
             }
 
+            r.set_color(current_colorscheme.from_piecetype(current_holding));
             r.draw_tetromino(
                 COLUMNS + 2,
                 @intCast(i8, 1 + 4 * current_queue.len),

@@ -26,5 +26,6 @@ They are hard-coded in, if you want to customize, just edit the code.
 | Right | Move right |
 | Down | Move down |
 | Space | Hard drop |
+| {1,2,3} | Switch to {Solid,Gridless,Edges} style drawing respectively |
 
 #
