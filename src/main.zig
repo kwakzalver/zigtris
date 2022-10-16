@@ -728,7 +728,7 @@ var Grid = [1][COLUMNS]PieceType{
 
 var game_timer: std.time.Timer = undefined;
 
-// dummy placeholder, just call next_piece at the start
+// dummy placeholders, just call reset_game at the start
 var current_piece = Piece{
     .type = PieceType.None,
     .rotation = Rotation.None,
@@ -782,45 +782,34 @@ fn collision() bool {
     return false;
 }
 
-fn move_left() bool {
+fn move_delta(delta: Delta) bool {
+    const row = current_piece.row;
     const col = current_piece.col;
-    current_piece.col -= 1;
+    current_piece.row += delta.row;
+    current_piece.col += delta.col;
     if (collision()) {
+        current_piece.row = row;
         current_piece.col = col;
         return false;
     }
     return true;
+}
+
+fn move_left() bool {
+    return move_delta(Delta{ .row = 0, .col = -1 });
 }
 
 fn move_right() bool {
-    const col = current_piece.col;
-    current_piece.col += 1;
-    if (collision()) {
-        current_piece.col = col;
-        return false;
-    }
-    return true;
+    return move_delta(Delta{ .row = 0, .col = 1 });
 }
 
 fn move_down() bool {
-    const row = current_piece.row;
-    current_piece.row += 1;
-    if (collision()) {
-        current_piece.row = row;
-        return false;
-    }
-    return true;
+    return move_delta(Delta{ .row = 1, .col = 0 });
 }
 
 // :^)
 fn move_up() bool {
-    const row = current_piece.row;
-    current_piece.row -= 1;
-    if (collision()) {
-        current_piece.row = row;
-        return false;
-    }
-    return true;
+    return move_delta(Delta{ .row = -1, .col = 0 });
 }
 
 fn materialize() void {
