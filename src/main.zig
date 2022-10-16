@@ -5,7 +5,7 @@ const C = @cImport({
 
 const std = @import("std");
 
-var prng: std.rand.Xoshiro256 = undefined;
+var xoshiro: std.rand.Xoshiro256 = undefined;
 var rngesus: std.rand.Random = undefined;
 
 const FONT_BYTES = @embedFile("../assets/font.ttf");
@@ -153,8 +153,9 @@ const PieceType = enum {
         if (S.index == 0) {
             rngesus.shuffle(PieceType, S.types[0..]);
         }
+        const t = S.types[S.index];
         S.index = (S.index + 1) % S.types.len;
-        return S.types[S.index];
+        return t;
     }
 
     // TODO is there a beautiful and idiomatic way
@@ -1479,8 +1480,8 @@ fn sdl2_game() anyerror!void {
     };
 
     game_timer = try std.time.Timer.start();
-    prng = std.rand.DefaultPrng.init(@intCast(u64, std.time.milliTimestamp()));
-    rngesus = prng.random();
+    xoshiro = std.rand.DefaultPrng.init(@intCast(u64, std.time.milliTimestamp()));
+    rngesus = xoshiro.random();
     reset_game();
 
     var last_frame_drawn = try std.time.Timer.start();
@@ -1571,4 +1572,37 @@ test "clear lines" {
     }
     const cleared = clear_lines();
     try std.testing.expectEqual(cleared, 4);
+}
+
+// waiting for any specific piece will take at most 6 + 6 pieces
+// for example, you just got an I, and you get all other pieces twice first
+// [I] : [J L O S T Z] : [J L O S T Z] : [I]
+test "piecetypes are satisfyingly random" {
+    xoshiro = std.rand.DefaultPrng.init(@intCast(u64, std.time.milliTimestamp()));
+    rngesus = xoshiro.random();
+    var seen: [PieceType.iter.len]u8 = .{0} ** PieceType.iter.len;
+
+    // first round
+    var take: usize = 0;
+    while (take < PieceType.iter.len) : (take += 1) {
+        const t = PieceType.random();
+        const i = PieceType.iter_index(t);
+        seen[i] += 1;
+    }
+
+    for (seen) |b| {
+        try std.testing.expect(b == 1);
+    }
+
+    // second round
+    take = 0;
+    while (take < PieceType.iter.len) : (take += 1) {
+        const t = PieceType.random();
+        const i = PieceType.iter_index(t);
+        seen[i] += 1;
+    }
+
+    for (seen) |b| {
+        try std.testing.expect(b == 2);
+    }
 }
