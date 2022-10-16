@@ -57,6 +57,7 @@ const Color = struct {
 };
 
 const Rotation = enum {
+    const Self = @This();
     None,
     Right,
     Spin,
@@ -136,9 +137,20 @@ const Rotation = enum {
         Rotation.Spin,
         Rotation.Left,
     };
+
+    // TODO is there a beautiful and idiomatic way
+    fn iter_index(s: Self) usize {
+        for (Rotation.iter) |c, i| {
+            if (s == c) {
+                return i;
+            }
+        }
+        return 0;
+    }
 };
 
 const PieceType = enum {
+    const Self = @This();
     None,
     I,
     O,
@@ -177,6 +189,16 @@ const PieceType = enum {
         S.index = (S.index + 1) % S.types.len;
         return S.types[S.index];
     }
+
+    // TODO is there a beautiful and idiomatic way
+    pub fn iter_index(s: Self) usize {
+        for (PieceType.iter) |c, i| {
+            if (s == c) {
+                return i;
+            }
+        }
+        return 0;
+    }
 };
 
 const Colorname = enum {
@@ -193,8 +215,8 @@ const Colorname = enum {
         Colorname.onedark,
     };
 
-    // TODO is there a beautiful and idiomatic iter.index_of?
-    pub fn to_index(s: Self) usize {
+    // TODO is there a beautiful and idiomatic way
+    pub fn iter_index(s: Self) usize {
         for (Colorname.iter) |c, i| {
             if (s == c) {
                 return i;
@@ -279,7 +301,7 @@ const Colorscheme = struct {
 
     pub fn habamax() Colorscheme {
         return Colorscheme{
-            .index = Colorname.habamax.to_index(),
+            .index = Colorname.habamax.iter_index(),
             .foreground_light = Color.from_u24(0xbcbcbc), // #bcbcbc
             .foreground_dark = Color.from_u24(0x898989), // #898989
             .background_light = Color.from_u24(0x454545), // #454545
@@ -296,7 +318,7 @@ const Colorscheme = struct {
 
     pub fn gruvbox_dark() Colorscheme {
         return Colorscheme{
-            .index = Colorname.gruvbox_dark.to_index(),
+            .index = Colorname.gruvbox_dark.iter_index(),
             .foreground_light = Color.from_u24(0xebdbb2), // #ebdbb2
             .foreground_dark = Color.from_u24(0xb6ac90), // #b6ac90
             .background_light = Color.from_u24(0x5b5648), // #5b5648
@@ -313,7 +335,7 @@ const Colorscheme = struct {
 
     pub fn gruvbox_light() Colorscheme {
         return Colorscheme{
-            .index = Colorname.gruvbox_light.to_index(),
+            .index = Colorname.gruvbox_light.iter_index(),
             .foreground_light = Color.from_u24(0x282828), // #282828
             .foreground_dark = Color.from_u24(0x5b5648), // #5b5648
             .background_dark = Color.from_u24(0xebdbb2), // #ebdbb2
@@ -330,7 +352,7 @@ const Colorscheme = struct {
 
     pub fn onedark() Colorscheme {
         return Colorscheme{
-            .index = Colorname.onedark.to_index(),
+            .index = Colorname.onedark.iter_index(),
             .foreground_light = Color.from_u24(0xabb2bf), // #abb2bf
             .foreground_dark = Color.from_u24(0x8c94a2), // #8c94a2
             .background_light = Color.from_u24(0x464a51), // #464a51
@@ -658,28 +680,91 @@ const MinMaxRC = struct {
     max_row: i8,
     max_col: i8,
 
+    // TODO verify that no code is generated from this function, just the lookup table
+    fn generate_lookup_table() [PieceType.iter.len][Rotation.iter.len]MinMaxRC {
+        comptime {
+            @setEvalBranchQuota(2000);
+            var lookup_table = [_][Rotation.iter.len]MinMaxRC{
+                [_]MinMaxRC{
+                    .{ .min_row = 3, .min_col = 3, .max_row = 0, .max_col = 0 },
+                } ** Rotation.iter.len,
+            } ** PieceType.iter.len;
+            for (PieceType.iter) |ptype, ti| {
+                for (Rotation.iter) |prot, ri| {
+                    const d = generate_piece(ptype, prot);
+                    const B = PieceType.None;
+
+                    var min_row: u8 = 0;
+                    var min_col: u8 = 0;
+                    var max_row: u8 = 3;
+                    var max_col: u8 = 3;
+
+                    const bees = [4]PieceType{ B, B, B, B };
+
+                    while (std.mem.eql(
+                        PieceType,
+                        &bees,
+                        &[4]PieceType{
+                            d[max_row][0],
+                            d[max_row][1],
+                            d[max_row][2],
+                            d[max_row][3],
+                        },
+                    )) : (max_row -= 1) {}
+
+                    while (std.mem.eql(
+                        PieceType,
+                        &bees,
+                        &[4]PieceType{
+                            d[min_row][0],
+                            d[min_row][1],
+                            d[min_row][2],
+                            d[min_row][3],
+                        },
+                    )) : (min_row += 1) {}
+
+                    while (std.mem.eql(
+                        PieceType,
+                        &bees,
+                        &[4]PieceType{
+                            d[0][max_col],
+                            d[1][max_col],
+                            d[2][max_col],
+                            d[3][max_col],
+                        },
+                    )) : (max_col -= 1) {}
+
+                    while (std.mem.eql(
+                        PieceType,
+                        &bees,
+                        &[4]PieceType{
+                            d[0][min_col],
+                            d[1][min_col],
+                            d[2][min_col],
+                            d[3][min_col],
+                        },
+                    )) : (min_col += 1) {}
+
+                    lookup_table[ti][ri] = MinMaxRC{
+                        .min_row = @intCast(i8, min_row),
+                        .min_col = @intCast(i8, min_col),
+                        .max_row = @intCast(i8, max_row),
+                        .max_col = @intCast(i8, max_col),
+                    };
+                }
+            }
+            return lookup_table;
+        }
+    }
+
     fn minmax_rowcol(t: PieceType, r: Rotation) MinMaxRC {
-        // TODO generate a lookup-table at comptime for efficiency at runtime
-        const data = generate_piece(t, r);
-        const B = PieceType.None;
-
-        var min_row: u8 = 0;
-        var min_col: u8 = 0;
-        var max_row: u8 = 3;
-        var max_col: u8 = 3;
-
-        // TODO how to make a beautiful all-are-equal-to function?
-        while (data[max_row][0] == B and data[max_row][1] == B and data[max_row][2] == B and data[max_row][3] == B) : (max_row -= 1) {}
-        while (data[min_row][0] == B and data[min_row][1] == B and data[min_row][2] == B and data[min_row][3] == B) : (min_row += 1) {}
-        while (data[0][max_col] == B and data[1][max_col] == B and data[2][max_col] == B and data[3][max_col] == B) : (max_col -= 1) {}
-        while (data[0][min_col] == B and data[1][min_col] == B and data[2][min_col] == B and data[3][min_col] == B) : (min_col += 1) {}
-
-        return MinMaxRC{
-            .min_row = @intCast(i8, min_row),
-            .min_col = @intCast(i8, min_col),
-            .max_row = @intCast(i8, max_row),
-            .max_col = @intCast(i8, max_col),
+        const S = struct {
+            const lookup_table = MinMaxRC.generate_lookup_table();
         };
+
+        const pi = t.iter_index();
+        const ri = r.iter_index();
+        return S.lookup_table[pi][ri];
     }
 };
 
