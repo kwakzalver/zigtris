@@ -5,19 +5,32 @@ on:
     branches: [ "acceptable" ]
   pull_request:
     branches: [ "acceptable" ]
-
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: archlinux-latest
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux
     steps:
+      - name: Get time for cache
+        id: cache_time
+        run: echo "::set-output name=time::$(date +%F-%T)"
+      - name: Set up cache
+        uses: actions/cache@master
+        with:
+          path: /var/cache/pacman/pkg
+          key: pacman-cache-x86_64-${{ steps.cache_time.outputs.time }}
+          restore-keys: pacman-cache-x86_64-
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm zig sdl2 sdl2_ttf
+      - name: Checkout Repository
       - uses: actions/checkout@v3
       - name: Install dependencies and compile
         run: |
-          RUN pacman-key --init
-          RUN yes | pacman -Sy zig sdl2 sdl2_ttf
-          RUN zig build -Drelease-safe
+           zig build -Drelease-safe
       - name: Publish binary
         uses: actions/upload-artifact@v3.1.0
         with:
