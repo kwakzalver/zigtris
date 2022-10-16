@@ -5,9 +5,8 @@ const C = @cImport({
 
 const std = @import("std");
 
-// TODO initialize the random generator to make it less reproducible?
-var prng = std.rand.DefaultPrng.init(0);
-const rngesus = prng.random();
+var prng: std.rand.Xoshiro256 = undefined;
+var rngesus: std.rand.Random = undefined;
 
 const FONT_BYTES = @embedFile("../assets/font.ttf");
 
@@ -1597,6 +1596,8 @@ fn sdl2_game() anyerror!void {
     };
 
     game_timer = try std.time.Timer.start();
+    prng = std.rand.DefaultPrng.init(@intCast(u64, std.time.milliTimestamp()));
+    rngesus = prng.random();
     reset_game();
 
     var last_frame_drawn = try std.time.Timer.start();
