@@ -175,12 +175,14 @@ const Colorname = enum {
     gruvbox_dark,
     gruvbox_light,
     onedark,
+    macchiato,
 
     const iter = [_]Colorname{
         Colorname.habamax,
         Colorname.gruvbox_dark,
         Colorname.gruvbox_light,
         Colorname.onedark,
+        Colorname.macchiato,
     };
 
     // TODO is there a beautiful and idiomatic way
@@ -227,6 +229,7 @@ const Colorscheme = struct {
             .gruvbox_dark => Colorscheme.gruvbox_dark(),
             .gruvbox_light => Colorscheme.gruvbox_light(),
             .onedark => Colorscheme.onedark(),
+            .macchiato => Colorscheme.macchiato(),
         };
     }
 
@@ -246,34 +249,34 @@ const Colorscheme = struct {
     pub fn habamax() Colorscheme {
         return Colorscheme{
             .index = Colorname.habamax.iter_index(),
-            .fg_prim = Color.from_u24(0xbcbcbc), // #bcbcbc
+            .fg_prim = Color.from_u24(0xBCBCBC), // #BCBCBC
             .fg_seco = Color.from_u24(0x898989), // #898989
             .bg_seco = Color.from_u24(0x454545), // #454545
-            .bg_prim = Color.from_u24(0x1c1c1c), // #1c1c1c
-            .piece_I = Color.from_u24(0xd75f5f), // #d75f5f
-            .piece_J = Color.from_u24(0xbc796c), // #bc796c
-            .piece_L = Color.from_u24(0xa19379), // #a19379
-            .piece_O = Color.from_u24(0x87af87), // #87af87
-            .piece_S = Color.from_u24(0x79a194), // #79a194
-            .piece_T = Color.from_u24(0x6b93a1), // #6b93a1
-            .piece_Z = Color.from_u24(0x5f87af), // #5f87af
+            .bg_prim = Color.from_u24(0x1C1C1C), // #1C1C1C
+            .piece_I = Color.from_u24(0xD75F5F), // #D75F5F
+            .piece_J = Color.from_u24(0xBC796C), // #BC796C
+            .piece_L = Color.from_u24(0xA19379), // #A19379
+            .piece_O = Color.from_u24(0x87AF87), // #87AF87
+            .piece_S = Color.from_u24(0x79A194), // #79A194
+            .piece_T = Color.from_u24(0x6B93A1), // #6B93A1
+            .piece_Z = Color.from_u24(0x5F87AF), // #5F87AF
         };
     }
 
     pub fn gruvbox_dark() Colorscheme {
         return Colorscheme{
             .index = Colorname.gruvbox_dark.iter_index(),
-            .fg_prim = Color.from_u24(0xebdbb2), // #ebdbb2
-            .fg_seco = Color.from_u24(0xb6ac90), // #b6ac90
-            .bg_seco = Color.from_u24(0x5b5648), // #5b5648
+            .fg_prim = Color.from_u24(0xEBDBB2), // #EBDBB2
+            .fg_seco = Color.from_u24(0xB6AC90), // #B6AC90
+            .bg_seco = Color.from_u24(0x5B5648), // #5B5648
             .bg_prim = Color.from_u24(0x282828), // #282828
-            .piece_I = Color.from_u24(0xcc241d), // #cc241d
-            .piece_J = Color.from_u24(0xd65d0e), // #d65d0e
-            .piece_L = Color.from_u24(0xd79921), // #d79921
-            .piece_O = Color.from_u24(0x98971a), // #98971a
-            .piece_S = Color.from_u24(0x689d6a), // #689d6a
+            .piece_I = Color.from_u24(0xCC241D), // #CC241D
+            .piece_J = Color.from_u24(0xD65D0E), // #D65D0E
+            .piece_L = Color.from_u24(0xD79921), // #D79921
+            .piece_O = Color.from_u24(0x98971A), // #98971A
+            .piece_S = Color.from_u24(0x689D6A), // #689D6A
             .piece_T = Color.from_u24(0x458588), // #458588
-            .piece_Z = Color.from_u24(0xb16286), // #b16286
+            .piece_Z = Color.from_u24(0xB16286), // #B16286
         };
     }
 
@@ -281,33 +284,50 @@ const Colorscheme = struct {
         return Colorscheme{
             .index = Colorname.gruvbox_light.iter_index(),
             .fg_prim = Color.from_u24(0x282828), // #282828
-            .fg_seco = Color.from_u24(0x5b5648), // #5b5648
-            .bg_prim = Color.from_u24(0xebdbb2), // #ebdbb2
-            .bg_seco = Color.from_u24(0xb6ac90), // #b6ac90
-            .piece_I = Color.from_u24(0xcc241d), // #cc241d
-            .piece_J = Color.from_u24(0xd65d0e), // #d65d0e
-            .piece_L = Color.from_u24(0xd79921), // #d79921
-            .piece_O = Color.from_u24(0x98971a), // #98971a
-            .piece_S = Color.from_u24(0x689d6a), // #689d6a
+            .fg_seco = Color.from_u24(0x5B5648), // #5B5648
+            .bg_prim = Color.from_u24(0xEBDBB2), // #EBDBB2
+            .bg_seco = Color.from_u24(0xB6AC90), // #B6AC90
+            .piece_I = Color.from_u24(0xCC241D), // #CC241D
+            .piece_J = Color.from_u24(0xD65D0E), // #D65D0E
+            .piece_L = Color.from_u24(0xD79921), // #D79921
+            .piece_O = Color.from_u24(0x98971A), // #98971A
+            .piece_S = Color.from_u24(0x689D6A), // #689D6A
             .piece_T = Color.from_u24(0x458588), // #458588
-            .piece_Z = Color.from_u24(0xb16286), // #b16286
+            .piece_Z = Color.from_u24(0xB16286), // #B16286
         };
     }
 
     pub fn onedark() Colorscheme {
         return Colorscheme{
             .index = Colorname.onedark.iter_index(),
-            .fg_prim = Color.from_u24(0xabb2bf), // #abb2bf
-            .fg_seco = Color.from_u24(0x8c94a2), // #8c94a2
-            .bg_seco = Color.from_u24(0x464a51), // #464a51
-            .bg_prim = Color.from_u24(0x282c34), // #282c34
-            .piece_I = Color.from_u24(0xe06c75), // #e06c75
-            .piece_J = Color.from_u24(0xe29678), // #e29678
-            .piece_L = Color.from_u24(0xe5c07b), // #e5c07b
-            .piece_O = Color.from_u24(0x98c379), // #98c379
-            .piece_S = Color.from_u24(0x56b6c2), // #56b6c2
-            .piece_T = Color.from_u24(0x61afef), // #61afef
-            .piece_Z = Color.from_u24(0xc678dd), // #c678dd
+            .fg_prim = Color.from_u24(0xABB2BF), // #ABB2BF
+            .fg_seco = Color.from_u24(0x8C94A2), // #8C94A2
+            .bg_seco = Color.from_u24(0x464A51), // #464A51
+            .bg_prim = Color.from_u24(0x282C34), // #282C34
+            .piece_I = Color.from_u24(0xE06C75), // #E06C75
+            .piece_J = Color.from_u24(0xE29678), // #E29678
+            .piece_L = Color.from_u24(0xE5C07B), // #E5C07B
+            .piece_O = Color.from_u24(0x98C379), // #98C379
+            .piece_S = Color.from_u24(0x56B6C2), // #56B6C2
+            .piece_T = Color.from_u24(0x61AFEF), // #61AFEF
+            .piece_Z = Color.from_u24(0xC678DD), // #C678DD
+        };
+    }
+
+    pub fn macchiato() Colorscheme {
+        return Colorscheme{
+            .index = Colorname.macchiato.iter_index(),
+            .fg_prim = Color.from_u24(0xCAD3F5), // #CAD3F5
+            .fg_seco = Color.from_u24(0xB8C0E0), // #B8C0E0
+            .bg_seco = Color.from_u24(0x494D64), // #494D64
+            .bg_prim = Color.from_u24(0x24273A), // #24273A
+            .piece_I = Color.from_u24(0xED8796), // #ED8796
+            .piece_J = Color.from_u24(0xF5A97F), // #F5A97F
+            .piece_L = Color.from_u24(0xEED49F), // #EED49F
+            .piece_O = Color.from_u24(0xA6DA95), // #A6DA95
+            .piece_S = Color.from_u24(0x8BD5CA), // #8BD5CA
+            .piece_T = Color.from_u24(0x8AADF4), // #8AADF4
+            .piece_Z = Color.from_u24(0xF5BDE6), // #F5BDE6
         };
     }
 };
