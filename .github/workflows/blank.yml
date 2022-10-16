@@ -13,15 +13,6 @@ jobs:
     container:
       image: archlinux
     steps:
-      - name: Get time for cache
-        id: cache_time
-        run: echo "::set-output name=time::$(date +%F-%T)"
-      - name: Set up cache
-        uses: actions/cache@master
-        with:
-          path: /var/cache/pacman/pkg
-          key: pacman-cache-x86_64-${{ steps.cache_time.outputs.time }}
-          restore-keys: pacman-cache-x86_64-
       - name: Install dependencies
         run: |
           pacman -Syu --noconfirm
