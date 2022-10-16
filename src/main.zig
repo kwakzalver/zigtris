@@ -63,71 +63,39 @@ const Rotation = enum {
     Left,
 
     pub fn rotate(self: Rotation, other: Rotation) Rotation {
-        switch (other) {
-            Rotation.None => {
-                return self;
-            },
-            Rotation.Right => {
-                return self.rotate_right();
-            },
-            Rotation.Spin => {
-                return self.rotate_spin();
-            },
-            Rotation.Left => {
-                return self.rotate_left();
-            },
-        }
+        return switch (other) {
+            Rotation.None => self,
+            Rotation.Right => self.rotate_right(),
+            Rotation.Spin => self.rotate_spin(),
+            Rotation.Left => self.rotate_left(),
+        };
     }
 
     pub fn rotate_right(self: Rotation) Rotation {
-        switch (self) {
-            Rotation.None => {
-                return Rotation.Right;
-            },
-            Rotation.Right => {
-                return Rotation.Spin;
-            },
-            Rotation.Spin => {
-                return Rotation.Left;
-            },
-            Rotation.Left => {
-                return Rotation.None;
-            },
-        }
+        return switch (self) {
+            Rotation.None => Rotation.Right,
+            Rotation.Right => Rotation.Spin,
+            Rotation.Spin => Rotation.Left,
+            Rotation.Left => Rotation.None,
+        };
     }
 
     pub fn rotate_left(self: Rotation) Rotation {
-        switch (self) {
-            Rotation.None => {
-                return Rotation.Left;
-            },
-            Rotation.Right => {
-                return Rotation.None;
-            },
-            Rotation.Spin => {
-                return Rotation.Right;
-            },
-            Rotation.Left => {
-                return Rotation.Spin;
-            },
-        }
+        return switch (self) {
+            Rotation.None => Rotation.Left,
+            Rotation.Right => Rotation.None,
+            Rotation.Spin => Rotation.Right,
+            Rotation.Left => Rotation.Spin,
+        };
     }
 
     pub fn rotate_spin(self: Rotation) Rotation {
-        switch (self) {
-            Rotation.None => {
-                return Rotation.Spin;
-            },
-            Rotation.Right => {
-                return Rotation.Left;
-            },
-            Rotation.Spin => {
-                return Rotation.None;
-            },
-            Rotation.Left => {
-                return Rotation.Right;
-            },
-        }
+        return switch (self) {
+            Rotation.None => Rotation.Spin,
+            Rotation.Right => Rotation.Left,
+            Rotation.Spin => Rotation.None,
+            Rotation.Left => Rotation.Right,
+        };
     }
 
     const iter = [4]Rotation{
@@ -228,10 +196,10 @@ const Colorname = enum {
 const Colorscheme = struct {
     const Self = @This();
     index: usize,
-    foreground_light: Color,
-    foreground_dark: Color,
-    background_light: Color,
-    background_dark: Color,
+    fg_prim: Color,
+    fg_secu: Color,
+    bg_secu: Color,
+    bg_prim: Color,
     piece_I: Color,
     piece_O: Color,
     piece_J: Color,
@@ -253,58 +221,34 @@ const Colorscheme = struct {
     }
 
     pub fn from_name(n: Colorname) Colorscheme {
-        switch (n) {
-            .habamax => {
-                return Colorscheme.habamax();
-            },
-            .gruvbox_dark => {
-                return Colorscheme.gruvbox_dark();
-            },
-            .gruvbox_light => {
-                return Colorscheme.gruvbox_light();
-            },
-            .onedark => {
-                return Colorscheme.onedark();
-            },
-        }
+        return switch (n) {
+            .habamax => Colorscheme.habamax(),
+            .gruvbox_dark => Colorscheme.gruvbox_dark(),
+            .gruvbox_light => Colorscheme.gruvbox_light(),
+            .onedark => Colorscheme.onedark(),
+        };
     }
 
     pub fn from_piecetype(s: *Self, p: PieceType) Color {
-        switch (p) {
-            PieceType.None => {
-                return s.background_dark;
-            },
-            PieceType.I => {
-                return s.piece_I;
-            },
-            PieceType.O => {
-                return s.piece_O;
-            },
-            PieceType.J => {
-                return s.piece_J;
-            },
-            PieceType.L => {
-                return s.piece_L;
-            },
-            PieceType.S => {
-                return s.piece_S;
-            },
-            PieceType.Z => {
-                return s.piece_Z;
-            },
-            PieceType.T => {
-                return s.piece_T;
-            },
-        }
+        return switch (p) {
+            PieceType.None => s.bg_prim,
+            PieceType.I => s.piece_I,
+            PieceType.O => s.piece_O,
+            PieceType.J => s.piece_J,
+            PieceType.L => s.piece_L,
+            PieceType.S => s.piece_S,
+            PieceType.Z => s.piece_Z,
+            PieceType.T => s.piece_T,
+        };
     }
 
     pub fn habamax() Colorscheme {
         return Colorscheme{
             .index = Colorname.habamax.iter_index(),
-            .foreground_light = Color.from_u24(0xbcbcbc), // #bcbcbc
-            .foreground_dark = Color.from_u24(0x898989), // #898989
-            .background_light = Color.from_u24(0x454545), // #454545
-            .background_dark = Color.from_u24(0x1c1c1c), // #1c1c1c
+            .fg_prim = Color.from_u24(0xbcbcbc), // #bcbcbc
+            .fg_secu = Color.from_u24(0x898989), // #898989
+            .bg_secu = Color.from_u24(0x454545), // #454545
+            .bg_prim = Color.from_u24(0x1c1c1c), // #1c1c1c
             .piece_I = Color.from_u24(0xd75f5f), // #d75f5f
             .piece_J = Color.from_u24(0xbc796c), // #bc796c
             .piece_L = Color.from_u24(0xa19379), // #a19379
@@ -318,10 +262,10 @@ const Colorscheme = struct {
     pub fn gruvbox_dark() Colorscheme {
         return Colorscheme{
             .index = Colorname.gruvbox_dark.iter_index(),
-            .foreground_light = Color.from_u24(0xebdbb2), // #ebdbb2
-            .foreground_dark = Color.from_u24(0xb6ac90), // #b6ac90
-            .background_light = Color.from_u24(0x5b5648), // #5b5648
-            .background_dark = Color.from_u24(0x282828), // #282828
+            .fg_prim = Color.from_u24(0xebdbb2), // #ebdbb2
+            .fg_secu = Color.from_u24(0xb6ac90), // #b6ac90
+            .bg_secu = Color.from_u24(0x5b5648), // #5b5648
+            .bg_prim = Color.from_u24(0x282828), // #282828
             .piece_I = Color.from_u24(0xcc241d), // #cc241d
             .piece_J = Color.from_u24(0xd65d0e), // #d65d0e
             .piece_L = Color.from_u24(0xd79921), // #d79921
@@ -335,10 +279,10 @@ const Colorscheme = struct {
     pub fn gruvbox_light() Colorscheme {
         return Colorscheme{
             .index = Colorname.gruvbox_light.iter_index(),
-            .foreground_light = Color.from_u24(0x282828), // #282828
-            .foreground_dark = Color.from_u24(0x5b5648), // #5b5648
-            .background_dark = Color.from_u24(0xebdbb2), // #ebdbb2
-            .background_light = Color.from_u24(0xb6ac90), // #b6ac90
+            .fg_prim = Color.from_u24(0x282828), // #282828
+            .fg_secu = Color.from_u24(0x5b5648), // #5b5648
+            .bg_prim = Color.from_u24(0xebdbb2), // #ebdbb2
+            .bg_secu = Color.from_u24(0xb6ac90), // #b6ac90
             .piece_I = Color.from_u24(0xcc241d), // #cc241d
             .piece_J = Color.from_u24(0xd65d0e), // #d65d0e
             .piece_L = Color.from_u24(0xd79921), // #d79921
@@ -352,10 +296,10 @@ const Colorscheme = struct {
     pub fn onedark() Colorscheme {
         return Colorscheme{
             .index = Colorname.onedark.iter_index(),
-            .foreground_light = Color.from_u24(0xabb2bf), // #abb2bf
-            .foreground_dark = Color.from_u24(0x8c94a2), // #8c94a2
-            .background_light = Color.from_u24(0x464a51), // #464a51
-            .background_dark = Color.from_u24(0x282c34), // #282c34
+            .fg_prim = Color.from_u24(0xabb2bf), // #abb2bf
+            .fg_secu = Color.from_u24(0x8c94a2), // #8c94a2
+            .bg_secu = Color.from_u24(0x464a51), // #464a51
+            .bg_prim = Color.from_u24(0x282c34), // #282c34
             .piece_I = Color.from_u24(0xe06c75), // #e06c75
             .piece_J = Color.from_u24(0xe29678), // #e29678
             .piece_L = Color.from_u24(0xe5c07b), // #e5c07b
@@ -389,301 +333,196 @@ fn generate_piece(t: PieceType, r: Rotation) [4][4]PieceType {
     const S = PieceType.S;
     const Z = PieceType.Z;
     const T = PieceType.T;
-    switch (t) {
-        I => {
-            switch (r) {
-                .None => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ I, I, I, I },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Right => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, I, B },
-                        .{ B, B, I, B },
-                        .{ B, B, I, B },
-                        .{ B, B, I, B },
-                    };
-                    return data;
-                },
-                .Spin => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                        .{ I, I, I, I },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Left => {
-                    const data = [4][4]PieceType{
-                        .{ B, I, B, B },
-                        .{ B, I, B, B },
-                        .{ B, I, B, B },
-                        .{ B, I, B, B },
-                    };
-                    return data;
-                },
-            }
+    return switch (t) {
+        I => switch (r) {
+            .None => [4][4]PieceType{
+                .{ B, B, B, B },
+                .{ I, I, I, I },
+                .{ B, B, B, B },
+                .{ B, B, B, B },
+            },
+            .Right => [4][4]PieceType{
+                .{ B, B, I, B },
+                .{ B, B, I, B },
+                .{ B, B, I, B },
+                .{ B, B, I, B },
+            },
+            .Spin => [4][4]PieceType{
+                .{ B, B, B, B },
+                .{ B, B, B, B },
+                .{ I, I, I, I },
+                .{ B, B, B, B },
+            },
+            .Left => [4][4]PieceType{
+                .{ B, I, B, B },
+                .{ B, I, B, B },
+                .{ B, I, B, B },
+                .{ B, I, B, B },
+            },
         },
-        O => {
-            switch (r) {
-                .None => {
-                    const data = [4][4]PieceType{
-                        .{ O, O, B, B },
-                        .{ O, O, B, B },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Right => {
-                    const data = [4][4]PieceType{
-                        .{ B, O, O, B },
-                        .{ B, O, O, B },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Spin => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ B, O, O, B },
-                        .{ B, O, O, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Left => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ O, O, B, B },
-                        .{ O, O, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-            }
+        O => switch (r) {
+            .None => [4][4]PieceType{
+                .{ O, O, B, B },
+                .{ O, O, B, B },
+                .{ B, B, B, B },
+                .{ B, B, B, B },
+            },
+            .Right => [4][4]PieceType{
+                .{ B, O, O, B },
+                .{ B, O, O, B },
+                .{ B, B, B, B },
+                .{ B, B, B, B },
+            },
+            .Spin => [4][4]PieceType{
+                .{ B, B, B, B },
+                .{ B, O, O, B },
+                .{ B, O, O, B },
+                .{ B, B, B, B },
+            },
+            .Left => [4][4]PieceType{
+                .{ B, B, B, B },
+                .{ O, O, B, B },
+                .{ O, O, B, B },
+                .{ B, B, B, B },
+            },
         },
-        J => {
-            switch (r) {
-                .None => {
-                    const data = [4][4]PieceType{
-                        .{ J, B, B, B },
-                        .{ J, J, J, B },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Right => {
-                    const data = [4][4]PieceType{
-                        .{ B, J, J, B },
-                        .{ B, J, B, B },
-                        .{ B, J, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Spin => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ J, J, J, B },
-                        .{ B, B, J, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Left => {
-                    const data = [4][4]PieceType{
-                        .{ B, J, B, B },
-                        .{ B, J, B, B },
-                        .{ J, J, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-            }
+        J => switch (r) {
+            .None => [4][4]PieceType{
+                .{ J, B, B, B },
+                .{ J, J, J, B },
+                .{ B, B, B, B },
+                .{ B, B, B, B },
+            },
+            .Right => [4][4]PieceType{
+                .{ B, J, J, B },
+                .{ B, J, B, B },
+                .{ B, J, B, B },
+                .{ B, B, B, B },
+            },
+            .Spin => [4][4]PieceType{
+                .{ B, B, B, B },
+                .{ J, J, J, B },
+                .{ B, B, J, B },
+                .{ B, B, B, B },
+            },
+            .Left => [4][4]PieceType{
+                .{ B, J, B, B },
+                .{ B, J, B, B },
+                .{ J, J, B, B },
+                .{ B, B, B, B },
+            },
         },
-        L => {
-            switch (r) {
-                .None => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, L, B },
-                        .{ L, L, L, B },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Right => {
-                    const data = [4][4]PieceType{
-                        .{ B, L, B, B },
-                        .{ B, L, B, B },
-                        .{ B, L, L, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Spin => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ L, L, L, B },
-                        .{ L, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Left => {
-                    const data = [4][4]PieceType{
-                        .{ L, L, B, B },
-                        .{ B, L, B, B },
-                        .{ B, L, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-            }
+        L => switch (r) {
+            .None => [4][4]PieceType{
+                .{ B, B, L, B },
+                .{ L, L, L, B },
+                .{ B, B, B, B },
+                .{ B, B, B, B },
+            },
+            .Right => [4][4]PieceType{
+                .{ B, L, B, B },
+                .{ B, L, B, B },
+                .{ B, L, L, B },
+                .{ B, B, B, B },
+            },
+            .Spin => [4][4]PieceType{
+                .{ B, B, B, B },
+                .{ L, L, L, B },
+                .{ L, B, B, B },
+                .{ B, B, B, B },
+            },
+            .Left => [4][4]PieceType{
+                .{ L, L, B, B },
+                .{ B, L, B, B },
+                .{ B, L, B, B },
+                .{ B, B, B, B },
+            },
         },
-        S => {
-            switch (r) {
-                .None => {
-                    const data = [4][4]PieceType{
-                        .{ B, S, S, B },
-                        .{ S, S, B, B },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Right => {
-                    const data = [4][4]PieceType{
-                        .{ B, S, B, B },
-                        .{ B, S, S, B },
-                        .{ B, B, S, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Spin => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ B, S, S, B },
-                        .{ S, S, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Left => {
-                    const data = [4][4]PieceType{
-                        .{ S, B, B, B },
-                        .{ S, S, B, B },
-                        .{ B, S, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-            }
+        S => switch (r) {
+            .None => [4][4]PieceType{
+                .{ B, S, S, B },
+                .{ S, S, B, B },
+                .{ B, B, B, B },
+                .{ B, B, B, B },
+            },
+            .Right => [4][4]PieceType{
+                .{ B, S, B, B },
+                .{ B, S, S, B },
+                .{ B, B, S, B },
+                .{ B, B, B, B },
+            },
+            .Spin => [4][4]PieceType{
+                .{ B, B, B, B },
+                .{ B, S, S, B },
+                .{ S, S, B, B },
+                .{ B, B, B, B },
+            },
+            .Left => [4][4]PieceType{
+                .{ S, B, B, B },
+                .{ S, S, B, B },
+                .{ B, S, B, B },
+                .{ B, B, B, B },
+            },
         },
-        Z => {
-            switch (r) {
-                .None => {
-                    const data = [4][4]PieceType{
-                        .{ Z, Z, B, B },
-                        .{ B, Z, Z, B },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Right => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, Z, B },
-                        .{ B, Z, Z, B },
-                        .{ B, Z, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Spin => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ Z, Z, B, B },
-                        .{ B, Z, Z, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Left => {
-                    const data = [4][4]PieceType{
-                        .{ B, Z, B, B },
-                        .{ Z, Z, B, B },
-                        .{ Z, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-            }
+        Z => switch (r) {
+            .None => [4][4]PieceType{
+                .{ Z, Z, B, B },
+                .{ B, Z, Z, B },
+                .{ B, B, B, B },
+                .{ B, B, B, B },
+            },
+            .Right => [4][4]PieceType{
+                .{ B, B, Z, B },
+                .{ B, Z, Z, B },
+                .{ B, Z, B, B },
+                .{ B, B, B, B },
+            },
+            .Spin => [4][4]PieceType{
+                .{ B, B, B, B },
+                .{ Z, Z, B, B },
+                .{ B, Z, Z, B },
+                .{ B, B, B, B },
+            },
+            .Left => [4][4]PieceType{
+                .{ B, Z, B, B },
+                .{ Z, Z, B, B },
+                .{ Z, B, B, B },
+                .{ B, B, B, B },
+            },
         },
-        T => {
-            switch (r) {
-                .None => {
-                    const data = [4][4]PieceType{
-                        .{ B, T, B, B },
-                        .{ T, T, T, B },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Right => {
-                    const data = [4][4]PieceType{
-                        .{ B, T, B, B },
-                        .{ B, T, T, B },
-                        .{ B, T, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Spin => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ T, T, T, B },
-                        .{ B, T, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-                .Left => {
-                    const data = [4][4]PieceType{
-                        .{ B, T, B, B },
-                        .{ T, T, B, B },
-                        .{ B, T, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-            }
+        T => switch (r) {
+            .None => [4][4]PieceType{
+                .{ B, T, B, B },
+                .{ T, T, T, B },
+                .{ B, B, B, B },
+                .{ B, B, B, B },
+            },
+            .Right => [4][4]PieceType{
+                .{ B, T, B, B },
+                .{ B, T, T, B },
+                .{ B, T, B, B },
+                .{ B, B, B, B },
+            },
+            .Spin => [4][4]PieceType{
+                .{ B, B, B, B },
+                .{ T, T, T, B },
+                .{ B, T, B, B },
+                .{ B, B, B, B },
+            },
+            .Left => [4][4]PieceType{
+                .{ B, T, B, B },
+                .{ T, T, B, B },
+                .{ B, T, B, B },
+                .{ B, B, B, B },
+            },
         },
-        B => {
-            switch (r) {
-                else => {
-                    const data = [4][4]PieceType{
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                        .{ B, B, B, B },
-                    };
-                    return data;
-                },
-            }
+        B => [4][4]PieceType{
+            .{ B, B, B, B },
+            .{ B, B, B, B },
+            .{ B, B, B, B },
+            .{ B, B, B, B },
         },
-    }
+    };
 }
 
 const MinMaxRC = struct {
@@ -1172,7 +1011,7 @@ const Renderer = struct {
                     SIZE,
                     SIZE,
                 );
-                self.set_color(current_colorscheme.background_dark);
+                self.set_color(current_colorscheme.bg_prim);
                 self.fill_rectangle(
                     BORDER + SIZE + x * (BORDER + SIZE) + (SIZE >> 2),
                     BORDER + SIZE + y * (BORDER + SIZE) + (SIZE >> 2),
@@ -1215,7 +1054,7 @@ const Renderer = struct {
         var row_offset = (BORDER + SIZE) * (ROWS - 6);
         _ = std.fmt.bufPrint(buf, "{any}", .{lines}) catch {};
         const c_string = buf;
-        const c = current_colorscheme.foreground_light;
+        const c = current_colorscheme.fg_prim;
         const color = C.SDL_Color{
             .r = c.red,
             .g = c.green,
@@ -1291,7 +1130,7 @@ const Renderer = struct {
         var row_offset = (BORDER + SIZE) * (ROWS - 4);
         _ = std.fmt.bufPrint(buf, "{any}", .{time}) catch {};
         const c_string = buf;
-        const c = current_colorscheme.foreground_light;
+        const c = current_colorscheme.fg_prim;
         const color = C.SDL_Color{
             .r = c.red,
             .g = c.green,
@@ -1336,7 +1175,7 @@ const Renderer = struct {
 
     pub fn draw_grid(self: *Self) void {
         // basically the outline
-        self.set_color(current_colorscheme.foreground_light);
+        self.set_color(current_colorscheme.fg_prim);
         self.fill_rectangle(
             SIZE,
             SIZE,
@@ -1370,7 +1209,7 @@ const Renderer = struct {
         const ratio = 0.4 * @fabs(@sin(3.141592 * timestamp));
         const piece_color = Color.merge(
             current_colorscheme.from_piecetype(p),
-            current_colorscheme.background_light,
+            current_colorscheme.bg_secu,
             ratio,
         );
         self.set_color(piece_color);
@@ -1653,7 +1492,7 @@ fn sdl2_game() anyerror!void {
         if (last_frame_drawn.read() > TARGET_FPS_DELAY) {
             last_frame_drawn.reset();
             // keep abstracting every bit of rendering
-            r.set_color(current_colorscheme.background_dark);
+            r.set_color(current_colorscheme.bg_prim);
             r.clear();
 
             r.draw_grid();
