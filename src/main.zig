@@ -1455,7 +1455,7 @@ fn sdl2_game() anyerror!void {
         C.SDL_WINDOWPOS_UNDEFINED,
         @intCast(i32, WINDOW_WIDTH),
         @intCast(i32, WINDOW_HEIGHT),
-        C.SDL_WINDOW_OPENGL,
+        C.SDL_WINDOW_OPENGL | C.SDL_WINDOW_RESIZABLE,
     ) orelse {
         C.SDL_Log("Unable to create window: %s", C.SDL_GetError());
         return error.SDLInitializationFailed;
