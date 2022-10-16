@@ -197,8 +197,8 @@ const Colorscheme = struct {
     const Self = @This();
     index: usize,
     fg_prim: Color,
-    fg_secu: Color,
-    bg_secu: Color,
+    fg_seco: Color,
+    bg_seco: Color,
     bg_prim: Color,
     piece_I: Color,
     piece_O: Color,
@@ -246,8 +246,8 @@ const Colorscheme = struct {
         return Colorscheme{
             .index = Colorname.habamax.iter_index(),
             .fg_prim = Color.from_u24(0xbcbcbc), // #bcbcbc
-            .fg_secu = Color.from_u24(0x898989), // #898989
-            .bg_secu = Color.from_u24(0x454545), // #454545
+            .fg_seco = Color.from_u24(0x898989), // #898989
+            .bg_seco = Color.from_u24(0x454545), // #454545
             .bg_prim = Color.from_u24(0x1c1c1c), // #1c1c1c
             .piece_I = Color.from_u24(0xd75f5f), // #d75f5f
             .piece_J = Color.from_u24(0xbc796c), // #bc796c
@@ -263,8 +263,8 @@ const Colorscheme = struct {
         return Colorscheme{
             .index = Colorname.gruvbox_dark.iter_index(),
             .fg_prim = Color.from_u24(0xebdbb2), // #ebdbb2
-            .fg_secu = Color.from_u24(0xb6ac90), // #b6ac90
-            .bg_secu = Color.from_u24(0x5b5648), // #5b5648
+            .fg_seco = Color.from_u24(0xb6ac90), // #b6ac90
+            .bg_seco = Color.from_u24(0x5b5648), // #5b5648
             .bg_prim = Color.from_u24(0x282828), // #282828
             .piece_I = Color.from_u24(0xcc241d), // #cc241d
             .piece_J = Color.from_u24(0xd65d0e), // #d65d0e
@@ -280,9 +280,9 @@ const Colorscheme = struct {
         return Colorscheme{
             .index = Colorname.gruvbox_light.iter_index(),
             .fg_prim = Color.from_u24(0x282828), // #282828
-            .fg_secu = Color.from_u24(0x5b5648), // #5b5648
+            .fg_seco = Color.from_u24(0x5b5648), // #5b5648
             .bg_prim = Color.from_u24(0xebdbb2), // #ebdbb2
-            .bg_secu = Color.from_u24(0xb6ac90), // #b6ac90
+            .bg_seco = Color.from_u24(0xb6ac90), // #b6ac90
             .piece_I = Color.from_u24(0xcc241d), // #cc241d
             .piece_J = Color.from_u24(0xd65d0e), // #d65d0e
             .piece_L = Color.from_u24(0xd79921), // #d79921
@@ -297,8 +297,8 @@ const Colorscheme = struct {
         return Colorscheme{
             .index = Colorname.onedark.iter_index(),
             .fg_prim = Color.from_u24(0xabb2bf), // #abb2bf
-            .fg_secu = Color.from_u24(0x8c94a2), // #8c94a2
-            .bg_secu = Color.from_u24(0x464a51), // #464a51
+            .fg_seco = Color.from_u24(0x8c94a2), // #8c94a2
+            .bg_seco = Color.from_u24(0x464a51), // #464a51
             .bg_prim = Color.from_u24(0x282c34), // #282c34
             .piece_I = Color.from_u24(0xe06c75), // #e06c75
             .piece_J = Color.from_u24(0xe29678), // #e29678
@@ -1209,7 +1209,7 @@ const Renderer = struct {
         const ratio = 0.4 * @fabs(@sin(3.141592 * timestamp));
         const piece_color = Color.merge(
             current_colorscheme.from_piecetype(p),
-            current_colorscheme.bg_secu,
+            current_colorscheme.bg_seco,
             ratio,
         );
         self.set_color(piece_color);
