@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [ "acceptable" ]
+  pull_request:
+    branches: [ "acceptable" ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: archlinux-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies and compile
+        run: |
+          RUN pacman-key --init
+          RUN yes | pacman -Sy zig sdl2 sdl2_ttf
+          RUN zig build -Drelease-safe
+      - name: Publish binary
+        uses: actions/upload-artifact@v3.1.0
+        with:
+          name: zigtris
+          path: zig-out/bin/zigtris
