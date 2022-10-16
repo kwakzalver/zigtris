@@ -705,6 +705,7 @@ const MinMaxRC = struct {
                     var max_row: u8 = 3;
                     var max_col: u8 = 3;
 
+                    // 🐝 🐝 🐝 🐝
                     const bees = [4]PieceType{ B, B, B, B };
 
                     while (std.mem.eql(
