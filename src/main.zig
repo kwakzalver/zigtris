@@ -680,13 +680,19 @@ const MinMaxRC = struct {
     max_row: i8,
     max_col: i8,
 
-    // TODO verify that no code is generated from this function, just the lookup table
-    fn generate_lookup_table() [PieceType.iter.len][Rotation.iter.len]MinMaxRC {
+    // TODO verify that no code is generated from this function, just the
+    // lookup table
+    fn create_lookup_table() [PieceType.iter.len][Rotation.iter.len]MinMaxRC {
         comptime {
             @setEvalBranchQuota(2000);
             var lookup_table = [_][Rotation.iter.len]MinMaxRC{
                 [_]MinMaxRC{
-                    .{ .min_row = 3, .min_col = 3, .max_row = 0, .max_col = 0 },
+                    .{
+                        .min_row = 3,
+                        .min_col = 3,
+                        .max_row = 0,
+                        .max_col = 0,
+                    },
                 } ** Rotation.iter.len,
             } ** PieceType.iter.len;
             for (PieceType.iter) |ptype, ti| {
@@ -759,7 +765,7 @@ const MinMaxRC = struct {
 
     fn minmax_rowcol(t: PieceType, r: Rotation) MinMaxRC {
         const S = struct {
-            const lookup_table = MinMaxRC.generate_lookup_table();
+            const lookup_table = MinMaxRC.create_lookup_table();
         };
 
         const pi = t.iter_index();
@@ -839,7 +845,10 @@ var current_colorscheme = Colorscheme.habamax();
 fn collision() bool {
     const row = current_piece.row;
     const col = current_piece.col;
-    const mmrc = MinMaxRC.minmax_rowcol(current_piece.type, current_piece.rotation);
+    const mmrc = MinMaxRC.minmax_rowcol(
+        current_piece.type,
+        current_piece.rotation,
+    );
 
     if (col + mmrc.min_col < 0 or col + mmrc.max_col >= COLUMNS) {
         return true;
@@ -1138,15 +1147,20 @@ const Renderer = struct {
 
     pub fn draw_lines_cleared(self: *Self, lines: u64) anyerror!void {
         const S = struct {
-            var last_colorscheme_index: usize = undefined;
-            var last_lines: u64 = 1 << 63;
-            var last_text: *C.SDL_Texture = undefined;
-            var last_rect: C.SDL_Rect = undefined;
+            var colorscheme: usize = undefined;
+            var lines: u64 = 1 << 63;
+            var text: *C.SDL_Texture = undefined;
+            var rect: C.SDL_Rect = undefined;
         };
-        if (lines == S.last_lines and S.last_colorscheme_index == current_colorscheme.index) {
+        if (lines == S.lines and S.colorscheme == current_colorscheme.index) {
             // re-use renderered
             if (self.force_redraw == 0) {
-                _ = C.SDL_RenderCopy(self.renderer, S.last_text, null, &S.last_rect);
+                _ = C.SDL_RenderCopy(
+                    self.renderer,
+                    S.text,
+                    null,
+                    &S.rect,
+                );
                 return;
             }
             self.force_redraw -= 1;
@@ -1159,13 +1173,21 @@ const Renderer = struct {
         _ = std.fmt.bufPrint(buf, "{any}", .{lines}) catch {};
         const c_string = buf;
         const c = current_colorscheme.foreground_light;
-        const color = C.SDL_Color{ .r = c.red, .g = c.green, .b = c.blue, .a = c.alpha };
+        const color = C.SDL_Color{
+            .r = c.red,
+            .g = c.green,
+            .b = c.blue,
+            .a = c.alpha,
+        };
         var surface = C.TTF_RenderText_Blended(
             self.font,
             c_string,
             color,
         ) orelse {
-            C.SDL_Log("Unable to TTF_RenderText_Blended: %s", C.SDL_GetError());
+            C.SDL_Log(
+                "Unable to TTF_RenderText_Blended: %s",
+                C.SDL_GetError(),
+            );
             return error.SDLRenderFailed;
         };
         defer C.SDL_FreeSurface(surface);
@@ -1173,7 +1195,10 @@ const Renderer = struct {
             self.renderer,
             surface,
         ) orelse {
-            C.SDL_Log("Unable to SDL_CreateTextureFromSurface: %s", C.SDL_GetError());
+            C.SDL_Log(
+                "Unable to SDL_CreateTextureFromSurface: %s",
+                C.SDL_GetError(),
+            );
             return error.SDLRenderFailed;
         };
         const tw = surface.*.w;
@@ -1187,26 +1212,31 @@ const Renderer = struct {
         _ = C.SDL_RenderCopy(self.renderer, text, null, &r);
 
         // keep previous rendered stuff
-        if (S.last_text != undefined) {
-            C.SDL_DestroyTexture(S.last_text);
+        if (S.text != undefined) {
+            C.SDL_DestroyTexture(S.text);
         }
-        S.last_colorscheme_index = current_colorscheme.index;
-        S.last_lines = lines;
-        S.last_text = text;
-        S.last_rect = r;
+        S.colorscheme = current_colorscheme.index;
+        S.lines = lines;
+        S.text = text;
+        S.rect = r;
     }
 
-    pub fn draw_time_passed(self: *Self, seconds: u64) anyerror!void {
+    pub fn draw_time_passed(self: *Self, time: u64) anyerror!void {
         const S = struct {
-            var last_colorscheme_index: usize = undefined;
-            var last_seconds: u64 = 1 << 63;
-            var last_text: *C.SDL_Texture = undefined;
-            var last_rect: C.SDL_Rect = undefined;
+            var colorscheme: usize = undefined;
+            var time: u64 = 1 << 63;
+            var text: *C.SDL_Texture = undefined;
+            var rect: C.SDL_Rect = undefined;
         };
-        if (seconds == S.last_seconds and S.last_colorscheme_index == current_colorscheme.index) {
+        if (time == S.time and S.colorscheme == current_colorscheme.index) {
             // re-use renderered
             if (self.force_redraw == 0) {
-                _ = C.SDL_RenderCopy(self.renderer, S.last_text, null, &S.last_rect);
+                _ = C.SDL_RenderCopy(
+                    self.renderer,
+                    S.text,
+                    null,
+                    &S.rect,
+                );
                 return;
             }
             self.force_redraw -= 1;
@@ -1216,10 +1246,15 @@ const Renderer = struct {
         var buf = local_buffer[0..];
         var col_offset = (BORDER + SIZE) * COLUMNS + 3 * SIZE;
         var row_offset = (BORDER + SIZE) * (ROWS - 4);
-        _ = std.fmt.bufPrint(buf, "{any}", .{seconds}) catch {};
+        _ = std.fmt.bufPrint(buf, "{any}", .{time}) catch {};
         const c_string = buf;
         const c = current_colorscheme.foreground_light;
-        const color = C.SDL_Color{ .r = c.red, .g = c.green, .b = c.blue, .a = c.alpha };
+        const color = C.SDL_Color{
+            .r = c.red,
+            .g = c.green,
+            .b = c.blue,
+            .a = c.alpha,
+        };
         var surface = C.TTF_RenderText_Blended(
             self.font,
             c_string,
@@ -1247,13 +1282,13 @@ const Renderer = struct {
         _ = C.SDL_RenderCopy(self.renderer, text, null, &r);
 
         // keep previous rendered stuff
-        if (S.last_text != undefined) {
-            C.SDL_DestroyTexture(S.last_text);
+        if (S.text != undefined) {
+            C.SDL_DestroyTexture(S.text);
         }
-        S.last_colorscheme_index = current_colorscheme.index;
-        S.last_seconds = seconds;
-        S.last_text = text;
-        S.last_rect = r;
+        S.colorscheme = current_colorscheme.index;
+        S.time = time;
+        S.text = text;
+        S.rect = r;
     }
 
     pub fn draw_grid(self: *Self) void {
@@ -1285,7 +1320,10 @@ const Renderer = struct {
         p: PieceType,
         r: Rotation,
     ) void {
-        const timestamp: f64 = @intToFloat(f64, std.time.milliTimestamp()) / 1e3;
+        const timestamp: f64 = @intToFloat(
+            f64,
+            std.time.milliTimestamp(),
+        ) / 1e3;
         const ratio = 0.4 * @fabs(@sin(3.141592 * timestamp));
         const piece_color = Color.merge(
             current_colorscheme.from_piecetype(p),
