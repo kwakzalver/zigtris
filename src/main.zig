@@ -10,8 +10,8 @@ var rngesus: std.rand.Random = undefined;
 
 const FONT_BYTES = @embedFile("../assets/font.ttf");
 
-var SIZE: usize = 64;
-var BORDER: usize = 3;
+var SIZE: usize = 42;
+var BORDER: usize = 1;
 
 const TARGET_FPS = 60;
 const TARGET_FPS_DELAY = @divFloor(1000, TARGET_FPS) * std.time.ns_per_ms;
