@@ -39,12 +39,13 @@ The numbers displayed are lines cleared and time passed respectively.
 Currently, there are no plans to add a configuration file. However, I am not
 entirely opposed to the idea.
 
-In order to customize Zigtris, here are a few helpful pointers:
+In order to customize Zigtris, below are a few helpful pointers.
 
 ## Size
 
 Scaling is done automatically based on the window's height. To change the
-default block size, change the `SIZE` variable.
+initial block size, change the `SIZE` variable. This will affect the initial
+window size.
 
 ## Keys, and the key repeating behavior
 
@@ -60,21 +61,25 @@ Look for `SDL_SCANCODE_` to see all the keys and customize to your liking.
 
 ## Font
 
-The default is a JetBrainsMono variant. Simply replace `./assets/font.ttf` to
-change it.
+The default is a [JetBrainsMono](https://github.com/JetBrains/JetBrainsMono)
+variant. Simply replace `./assets/font.ttf`, then recompile to change it.
 
 ## Colors
 
 In-game you can cycle through the colorschemes by pressing **Tab** or
 **Backspace**. The default colors are **habamax**, **gruvbox dark**, **gruvbox
 light**, **onedark**, and catppuccin **macchiato**. These are all popular
-colorschemes used by programmers. Feel free to add new ones, perhaps even make
-a pull request.
+colorschemes used by programmers.
 
 ## Style
 
 The drawing style for pieces is very simple. I hope to keep it as simple as
 possible, while still having some variety. That said, there is a **Style**
-enumeration which could be expanded on. Feel free to suggest changes.
+enumeration which could be expanded on.
+
+
+# Contributions
+
+Feel free to suggest changes.
 
 #
