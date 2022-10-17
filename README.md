@@ -41,6 +41,11 @@ entirely opposed to the idea.
 
 In order to customize Zigtris, here are a few helpful pointers:
 
+## Size
+
+Scaling is done automatically based on the window's height. To change the
+default block size, change the `SIZE` variable.
+
 ## Keys, and the key repeating behavior
 
 In the **Keyboard** structure are two variables, `initial_delay` and
