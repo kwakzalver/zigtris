@@ -1124,7 +1124,7 @@ const Renderer = struct {
         S.rect = r;
     }
 
-    pub fn draw_time_passed(self: *Self, time: u64) anyerror!void {
+    pub fn draw_time_passed(self: *Self, time: u64, highlight: bool) anyerror!void {
         const S = struct {
             var colorscheme: usize = undefined;
             var time: u64 = 1 << 63;
@@ -1151,7 +1151,10 @@ const Renderer = struct {
         var row_offset = (BORDER + SIZE) * (ROWS - 4);
         _ = std.fmt.bufPrint(buf, "{any}", .{time}) catch {};
         const c_string = buf;
-        const c = current_colorscheme.fg_prim;
+        const c = switch (highlight) {
+            false => current_colorscheme.fg_prim,
+            true => current_colorscheme.piece_T,
+        };
         const color = C.SDL_Color{
             .r = c.red,
             .g = c.green,
@@ -1517,21 +1520,6 @@ fn sdl2_game() anyerror!void {
             r.clear();
 
             r.draw_grid();
-            r.draw_lines_cleared(lines_cleared) catch {};
-
-            if (!sprint_finished) {
-                if (lines_cleared < 40) {
-                    const nanoseconds = game_timer.read();
-                    const seconds = nanoseconds / std.time.ns_per_s;
-                    sprint_time = seconds;
-                } else {
-                    const nanoseconds = game_timer.read();
-                    const milliseconds = nanoseconds / std.time.ns_per_ms;
-                    sprint_time = milliseconds;
-                    sprint_finished = true;
-                }
-            }
-            r.draw_time_passed(sprint_time) catch {};
 
             const ghost_row = ghost_drop();
             r.draw_ghost(
@@ -1549,11 +1537,12 @@ fn sdl2_game() anyerror!void {
                 current_piece.rotation,
             );
 
+            const col_offset = COLUMNS + 2;
             for (current_queue) |p, dr| {
                 const row_offset = @intCast(i8, 1 + 3 * dr);
                 r.set_color(current_colorscheme.from_piecetype(p));
                 r.draw_tetromino(
-                    COLUMNS + 2,
+                    col_offset,
                     row_offset,
                     p,
                     Rotation.None,
@@ -1562,11 +1551,32 @@ fn sdl2_game() anyerror!void {
 
             r.set_color(current_colorscheme.from_piecetype(current_holding));
             r.draw_tetromino(
-                COLUMNS + 2,
+                col_offset,
                 @intCast(i8, 1 + 4 * current_queue.len),
                 current_holding,
                 Rotation.None,
             );
+
+            r.draw_lines_cleared(lines_cleared) catch {};
+
+            // the game is a 40-line sprint + normal game by default, once you
+            // clear 40 lines, the time in milliseconds will remain on the
+            // screen for the rest of that session, R will reset the game.
+            // during the sprint, only seconds will be shown, because seeing
+            // milliseconds printed on the screen at all times is very annoying
+            if (!sprint_finished) {
+                if (lines_cleared < 40) {
+                    const nanoseconds = game_timer.read();
+                    const seconds = nanoseconds / std.time.ns_per_s;
+                    sprint_time = seconds;
+                } else {
+                    const nanoseconds = game_timer.read();
+                    const milliseconds = nanoseconds / std.time.ns_per_ms;
+                    sprint_time = milliseconds;
+                    sprint_finished = true;
+                }
+            }
+            r.draw_time_passed(sprint_time, sprint_finished) catch {};
 
             r.show();
         }
