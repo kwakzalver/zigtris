@@ -1513,7 +1513,7 @@ fn sdl2_game() anyerror!void {
     while (!quit) {
         quit = k.handle_input(&r);
 
-        if (last_frame_drawn.read() > TARGET_FPS_DELAY) {
+        if (last_frame_drawn.read() >= TARGET_FPS_DELAY) {
             last_frame_drawn.reset();
             // keep abstracting every bit of rendering
             r.set_color(current_colorscheme.bg_prim);
