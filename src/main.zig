@@ -10,6 +10,10 @@ var rngesus: std.rand.Random = undefined;
 
 const FONT_BYTES = @embedFile("../assets/font.ttf");
 
+// aspect ratio for width : height
+const RATIO_WIDTH: usize = 18;
+const RATIO_HEIGHT: usize = 22;
+
 var SIZE: usize = 42;
 var BORDER: usize = 1;
 
@@ -1329,15 +1333,16 @@ const Keyboard = struct {
                 C.SDL_WINDOWEVENT => {
                     switch (event.window.event) {
                         C.SDL_WINDOWEVENT_SIZE_CHANGED => {
-                            const width = event.window.data1;
+                            // we resize based on the smaller dimension, but
+                            // keep the width : height ratio into account
+                            const width = @divFloor(event.window.data1 * RATIO_HEIGHT, RATIO_WIDTH);
                             const height = event.window.data2;
-                            // we only resize based on height
-                            _ = width;
+                            const dimension = std.math.min(width, height);
                             SIZE = @intCast(usize, @divFloor(
-                                height - @intCast(i32, BORDER) * 22,
-                                22,
+                                dimension - @intCast(i32, BORDER) * RATIO_HEIGHT,
+                                RATIO_HEIGHT,
                             ));
-                            BORDER = @divFloor(SIZE, 32) | 1;
+                            BORDER = std.math.max(@divFloor(SIZE, 32), 1);
                             const font = sdl2_ttf() catch unreachable;
                             renderer.font = font;
                             renderer.force_redraw = 2;
@@ -1468,8 +1473,8 @@ fn sdl2_game() anyerror!void {
     }
     defer C.SDL_Quit();
 
-    const WINDOW_WIDTH: usize = 20 * (SIZE + BORDER);
-    const WINDOW_HEIGHT: usize = 22 * (SIZE + BORDER);
+    const WINDOW_WIDTH: usize = RATIO_WIDTH * (SIZE + BORDER);
+    const WINDOW_HEIGHT: usize = RATIO_HEIGHT * (SIZE + BORDER);
 
     const screen = C.SDL_CreateWindow(
         "Zigtris",
