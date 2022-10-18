@@ -15,6 +15,8 @@ var BORDER: usize = 1;
 
 const TARGET_FPS = 60;
 const TARGET_FPS_DELAY = @divFloor(1000, TARGET_FPS) * std.time.ns_per_ms;
+
+const GRAVITY_ENABLED: bool = false;
 const GRAVITY_DELAY = 700 * std.time.ns_per_ms;
 
 // const stdout = std.io.getStdOut().writer();
@@ -1515,12 +1517,14 @@ fn sdl2_game() anyerror!void {
     while (!quit) {
         quit = k.handle_input(&r);
 
-        const gravity_tick = gravity_timer.read() >= GRAVITY_DELAY;
-        if (gravity_tick) {
-            if (!move_down()) {
-                piece_lock();
+        if (GRAVITY_ENABLED) {
+            const gravity_tick = gravity_timer.read() >= GRAVITY_DELAY;
+            if (gravity_tick) {
+                if (!move_down()) {
+                    piece_lock();
+                }
+                gravity_timer.reset();
             }
-            gravity_timer.reset();
         }
 
         if (last_frame_drawn.read() >= TARGET_FPS_DELAY) {
