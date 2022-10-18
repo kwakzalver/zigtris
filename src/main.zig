@@ -806,6 +806,10 @@ fn next_piece() void {
     current_queue[1] = current_queue[2];
     current_queue[2] = current_queue[3];
     current_queue[3] = PieceType.random();
+    if (collision()) {
+        // game over!
+        reset_game();
+    }
 }
 
 fn hold_piece() void {
@@ -1402,10 +1406,6 @@ const Keyboard = struct {
         }
 
         if (self.single(C.SDL_SCANCODE_SPACE)) {
-            if (collision()) {
-                // game over!
-                reset_game();
-            }
             _ = hard_drop();
         }
 
