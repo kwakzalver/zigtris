@@ -15,6 +15,7 @@ var BORDER: usize = 1;
 
 const TARGET_FPS = 60;
 const TARGET_FPS_DELAY = @divFloor(1000, TARGET_FPS) * std.time.ns_per_ms;
+const GRAVITY_DELAY = 700 * std.time.ns_per_ms;
 
 // const stdout = std.io.getStdOut().writer();
 // var buffer = std.io.bufferedWriter(stdout);
@@ -1503,6 +1504,7 @@ fn sdl2_game() anyerror!void {
     };
 
     game_timer = try std.time.Timer.start();
+    var gravity_timer = try std.time.Timer.start();
     xoshiro = std.rand.DefaultPrng.init(@intCast(u64, std.time.milliTimestamp()));
     rngesus = xoshiro.random();
     reset_game();
@@ -1512,6 +1514,14 @@ fn sdl2_game() anyerror!void {
     var quit = false;
     while (!quit) {
         quit = k.handle_input(&r);
+
+        const gravity_tick = gravity_timer.read() >= GRAVITY_DELAY;
+        if (gravity_tick) {
+            if (!move_down()) {
+                piece_lock();
+            }
+            gravity_timer.reset();
+        }
 
         if (last_frame_drawn.read() >= TARGET_FPS_DELAY) {
             last_frame_drawn.reset();
