@@ -38,22 +38,22 @@ const Color = struct {
         };
     }
 
-    pub fn merge(lhs: Color, rhs: Color, l: f64) Color {
-        const r = (1.0 - l);
-        const lr = @intToFloat(f64, lhs.red);
-        const lg = @intToFloat(f64, lhs.green);
-        const lb = @intToFloat(f64, lhs.blue);
-        const la = @intToFloat(f64, lhs.alpha);
-        const rr = @intToFloat(f64, rhs.red);
-        const rg = @intToFloat(f64, rhs.green);
-        const rb = @intToFloat(f64, rhs.blue);
-        const ra = @intToFloat(f64, rhs.alpha);
+    pub fn merge(lhs: Color, rhs: Color, l: u8) Color {
+        const r: u8 = (100 - l);
+        const lr = @intCast(u16, lhs.red);
+        const lg = @intCast(u16, lhs.green);
+        const lb = @intCast(u16, lhs.blue);
+        const la = @intCast(u16, lhs.alpha);
+        const rr = @intCast(u16, rhs.red);
+        const rg = @intCast(u16, rhs.green);
+        const rb = @intCast(u16, rhs.blue);
+        const ra = @intCast(u16, rhs.alpha);
 
         return Color{
-            .red = @floatToInt(u8, lr * l + rr * r),
-            .green = @floatToInt(u8, lg * l + rg * r),
-            .blue = @floatToInt(u8, lb * l + rb * r),
-            .alpha = @floatToInt(u8, la * l + ra * r),
+            .red = @intCast(u8, @divFloor(lr * l + rr * r, 100)),
+            .green = @intCast(u8, @divFloor(lg * l + rg * r, 100)),
+            .blue = @intCast(u8, @divFloor(lb * l + rb * r, 100)),
+            .alpha = @intCast(u8, @divFloor(la * l + ra * r, 100)),
         };
     }
 };
@@ -1233,7 +1233,7 @@ const Renderer = struct {
             f64,
             std.time.milliTimestamp(),
         ) / 1e3;
-        const ratio = 0.4 * @fabs(@sin(3.141592 * timestamp));
+        const ratio: u8 = @floatToInt(u8, 40 * @fabs(@sin(3.141592 * timestamp)));
         const piece_color = Color.merge(
             current_colorscheme.from_piecetype(p),
             current_colorscheme.bg_seco,
