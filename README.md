@@ -15,6 +15,9 @@ Enjoy!
 ![Zigtris](./zigtris.png)
 
 The numbers displayed are lines cleared and time passed respectively.
+The game is basically a 40-line sprint in which you can ignore the finish line
+and continue playing. Once you clear 40 lines, the time displayed will be the
+same for the rest of that session.
 
 # Controls
 
