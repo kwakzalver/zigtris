@@ -1548,7 +1548,13 @@ fn sdl2_game() anyerror!void {
                 current_piece.rotation,
             );
 
-            r.set_color(current_colorscheme.from_piecetype(current_piece.type));
+            const ratio: u8 = 50;
+            const piece_color = Color.merge(
+                current_colorscheme.from_piecetype(current_piece.type),
+                current_colorscheme.fg_prim,
+                ratio,
+            );
+            r.set_color(piece_color);
             r.draw_tetromino(
                 current_piece.col,
                 current_piece.row,
