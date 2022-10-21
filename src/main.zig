@@ -42,7 +42,7 @@ const Color = struct {
         };
     }
 
-    pub fn merge(lhs: Color, rhs: Color, l: u8) Color {
+    pub fn combine(lhs: Color, rhs: Color, l: u8) Color {
         const r: u8 = (100 - l);
         const lr = @intCast(u16, lhs.red);
         const lg = @intCast(u16, lhs.green);
@@ -1242,7 +1242,7 @@ const Renderer = struct {
             std.time.milliTimestamp(),
         ) / 1e3;
         const ratio: u8 = @floatToInt(u8, 40 * @fabs(@sin(3.141592 * timestamp)));
-        const piece_color = Color.merge(
+        const piece_color = Color.combine(
             current_colorscheme.from_piecetype(p),
             current_colorscheme.bg_seco,
             ratio,
@@ -1549,7 +1549,7 @@ fn sdl2_game() anyerror!void {
             );
 
             const ratio: u8 = 50;
-            const piece_color = Color.merge(
+            const piece_color = Color.combine(
                 current_colorscheme.from_piecetype(current_piece.type),
                 current_colorscheme.fg_prim,
                 ratio,
