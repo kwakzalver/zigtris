@@ -62,7 +62,7 @@ const Color = struct {
     }
 };
 
-const Rotation = enum {
+const Rotation = enum(u2) {
     const Self = @This();
     None,
     Right,
@@ -112,20 +112,13 @@ const Rotation = enum {
         Rotation.Left,
     };
 
-    // TODO is there a beautiful and idiomatic way
     fn iter_index(s: Self) usize {
-        for (Rotation.iter) |c, i| {
-            if (s == c) {
-                return i;
-            }
-        }
-        return 0;
+        return @enumToInt(s);
     }
 };
 
-const PieceType = enum {
+const PieceType = enum(u3) {
     const Self = @This();
-    None,
     I,
     O,
     J,
@@ -133,6 +126,7 @@ const PieceType = enum {
     S,
     Z,
     T,
+    None,
 
     const iter = [7]PieceType{
         PieceType.I,
@@ -165,18 +159,13 @@ const PieceType = enum {
         return t;
     }
 
-    // TODO is there a beautiful and idiomatic way
+    // IMPORTANT make sure to not use this `iter_index` when PieceType.None
     pub fn iter_index(s: Self) usize {
-        for (PieceType.iter) |c, i| {
-            if (s == c) {
-                return i;
-            }
-        }
-        return 0;
+        return @enumToInt(s);
     }
 };
 
-const Colorname = enum {
+const Colorname = enum(u3) {
     const Self = @This();
     habamax,
     gruvbox_dark,
@@ -192,14 +181,8 @@ const Colorname = enum {
         Colorname.macchiato,
     };
 
-    // TODO is there a beautiful and idiomatic way
     pub fn iter_index(s: Self) usize {
-        for (Colorname.iter) |c, i| {
-            if (s == c) {
-                return i;
-            }
-        }
-        return 0;
+        return @enumToInt(s);
     }
 };
 
