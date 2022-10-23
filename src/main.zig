@@ -1441,7 +1441,7 @@ const Keyboard = struct {
             _ = rotate_right();
         }
 
-        if (self.repeats(C.SDL_SCANCODE_DOWN, repeat_delay / 4)) {
+        if (self.repeats(C.SDL_SCANCODE_DOWN, 0)) {
             _ = move_down();
         }
 
