@@ -5,6 +5,11 @@ const C = @cImport({
 
 const std = @import("std");
 
+// feature flags, enable or disable at will
+const ENABLE_RENDER_TIME = false;
+const ENABLE_GRAVITY = false;
+const GRAVITY_DELAY = 700 * std.time.ns_per_ms;
+
 var xoshiro: std.rand.Xoshiro256 = undefined;
 var rngesus: std.rand.Random = undefined;
 
@@ -20,9 +25,6 @@ var BORDER: usize = 1;
 const TARGET_FPS = 60;
 const TARGET_FPS_DELAY = @divFloor(1000, TARGET_FPS) * std.time.ns_per_ms;
 
-const GRAVITY_ENABLED: bool = false;
-const GRAVITY_DELAY = 700 * std.time.ns_per_ms;
-
 // const stdout = std.io.getStdOut().writer();
 // var buffer = std.io.bufferedWriter(stdout);
 // var bufio = buffer.writer();
@@ -31,14 +33,12 @@ const Color = struct {
     red: u8,
     green: u8,
     blue: u8,
-    alpha: u8 = 0xff,
 
     pub fn from_u24(rgb: u24) Color {
         return Color{
             .red = @intCast(u8, (rgb >> 16) & 0xff),
             .green = @intCast(u8, (rgb >> 8) & 0xff),
             .blue = @intCast(u8, (rgb >> 0) & 0xff),
-            .alpha = 0xff,
         };
     }
 
@@ -47,17 +47,14 @@ const Color = struct {
         const lr = @intCast(u16, lhs.red);
         const lg = @intCast(u16, lhs.green);
         const lb = @intCast(u16, lhs.blue);
-        const la = @intCast(u16, lhs.alpha);
         const rr = @intCast(u16, rhs.red);
         const rg = @intCast(u16, rhs.green);
         const rb = @intCast(u16, rhs.blue);
-        const ra = @intCast(u16, rhs.alpha);
 
         return Color{
             .red = @intCast(u8, @divFloor(lr * l + rr * r, 100)),
             .green = @intCast(u8, @divFloor(lg * l + rg * r, 100)),
             .blue = @intCast(u8, @divFloor(lb * l + rb * r, 100)),
-            .alpha = @intCast(u8, @divFloor(la * l + ra * r, 100)),
         };
     }
 };
@@ -969,7 +966,7 @@ const Renderer = struct {
             c.red,
             c.green,
             c.blue,
-            c.alpha,
+            0xff,
         );
     }
 
@@ -990,13 +987,6 @@ const Renderer = struct {
             .w = @intCast(i32, width),
             .h = @intCast(i32, height),
         };
-        _ = C.SDL_SetRenderDrawColor(
-            self.renderer,
-            self.color.red,
-            self.color.green,
-            self.color.blue,
-            self.color.alpha,
-        );
         _ = C.SDL_RenderFillRect(self.renderer, &rectangle);
     }
 
@@ -1074,7 +1064,7 @@ const Renderer = struct {
             .r = c.red,
             .g = c.green,
             .b = c.blue,
-            .a = c.alpha,
+            .a = 0xff,
         };
         var surface = C.TTF_RenderText_Blended(
             self.font,
@@ -1153,7 +1143,7 @@ const Renderer = struct {
             .r = c.red,
             .g = c.green,
             .b = c.blue,
-            .a = c.alpha,
+            .a = 0xff,
         };
         var surface = C.TTF_RenderText_Blended(
             self.font,
@@ -1175,6 +1165,76 @@ const Renderer = struct {
         const th = surface.*.h;
         var r = C.SDL_Rect{
             .x = @intCast(i32, col_offset),
+            .y = @intCast(i32, row_offset),
+            .w = tw,
+            .h = th,
+        };
+        _ = C.SDL_RenderCopy(self.renderer, text, null, &r);
+
+        // keep previous rendered stuff
+        if (S.text != undefined) {
+            C.SDL_DestroyTexture(S.text);
+        }
+        S.colorscheme = current_colorscheme.index;
+        S.time = time;
+        S.text = text;
+        S.rect = r;
+    }
+
+    pub fn draw_frame_render_time(self: *Self, time: u64) anyerror!void {
+        const S = struct {
+            var colorscheme: usize = undefined;
+            var time: u64 = 1 << 63;
+            var text: *C.SDL_Texture = undefined;
+            var rect: C.SDL_Rect = undefined;
+        };
+        if (time == S.time and S.colorscheme == current_colorscheme.index) {
+            // re-use renderered
+            if (self.force_redraw == 0) {
+                _ = C.SDL_RenderCopy(
+                    self.renderer,
+                    S.text,
+                    null,
+                    &S.rect,
+                );
+                return;
+            }
+            self.force_redraw -= 1;
+        }
+
+        var local_buffer: [64]u8 = .{0} ** 64;
+        var buf = local_buffer[0..];
+        var col_offset = RATIO_WIDTH * (BORDER + SIZE) - (SIZE >> 1);
+        var row_offset = (BORDER + SIZE) - (SIZE >> 1);
+        _ = std.fmt.bufPrint(buf, "{any} ms", .{time}) catch {};
+        const c_string = buf;
+        const c = current_colorscheme.piece_O;
+        const color = C.SDL_Color{
+            .r = c.red,
+            .g = c.green,
+            .b = c.blue,
+            .a = 0xff,
+        };
+        var surface = C.TTF_RenderText_Blended(
+            self.font,
+            c_string,
+            color,
+        ) orelse {
+            C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+            return error.SDLRenderFailed;
+        };
+        defer C.SDL_FreeSurface(surface);
+        var text = C.SDL_CreateTextureFromSurface(
+            self.renderer,
+            surface,
+        ) orelse {
+            C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+            return error.SDLRenderFailed;
+        };
+        const tw = surface.*.w;
+        const th = surface.*.h;
+        var r = C.SDL_Rect{
+            .x = @intCast(i32, col_offset) - tw,
             .y = @intCast(i32, row_offset),
             .w = tw,
             .h = th,
@@ -1328,7 +1388,7 @@ const Keyboard = struct {
                             BORDER = std.math.max(@divFloor(SIZE, 32), 1);
                             const font = sdl2_ttf() catch unreachable;
                             renderer.font = font;
-                            renderer.force_redraw = 2;
+                            renderer.force_redraw = 3;
                         },
                         else => {},
                     }
@@ -1459,13 +1519,17 @@ fn sdl2_game() anyerror!void {
     const WINDOW_WIDTH: usize = RATIO_WIDTH * (SIZE + BORDER);
     const WINDOW_HEIGHT: usize = RATIO_HEIGHT * (SIZE + BORDER);
 
+    // TODO
+    // try SDL_WINDOW_VULKAN, if fails
+    // try SDL_WINDOW_OPENGL, if fails
+    // just call it quits
     const screen = C.SDL_CreateWindow(
         "Zigtris",
         C.SDL_WINDOWPOS_UNDEFINED,
         C.SDL_WINDOWPOS_UNDEFINED,
         @intCast(i32, WINDOW_WIDTH),
         @intCast(i32, WINDOW_HEIGHT),
-        C.SDL_WINDOW_OPENGL | C.SDL_WINDOW_RESIZABLE,
+        C.SDL_WINDOW_VULKAN | C.SDL_WINDOW_RESIZABLE,
     ) orelse {
         C.SDL_Log("Unable to create window: %s", C.SDL_GetError());
         return error.SDLInitializationFailed;
@@ -1500,12 +1564,14 @@ fn sdl2_game() anyerror!void {
     reset_game();
 
     var last_frame_drawn = try std.time.Timer.start();
+    // NOTE unused variable if comptime ENABLE_RENDER_TIME not true
+    var render_time = last_frame_drawn.read() / std.time.ns_per_ms;
 
     var quit = false;
     while (!quit) {
         quit = k.handle_input(&r);
 
-        if (GRAVITY_ENABLED) {
+        if (comptime ENABLE_GRAVITY) {
             const gravity_tick = gravity_timer.read() >= GRAVITY_DELAY;
             if (gravity_tick) {
                 if (!move_down()) {
@@ -1586,7 +1652,15 @@ fn sdl2_game() anyerror!void {
             }
             r.draw_time_passed(sprint_time, sprint_finished) catch {};
 
+            if (comptime ENABLE_RENDER_TIME) {
+                r.draw_frame_render_time(render_time) catch {};
+            }
+
             r.show();
+
+            if (comptime ENABLE_RENDER_TIME) {
+                render_time = last_frame_drawn.read() / std.time.ns_per_ms;
+            }
         }
     }
 
