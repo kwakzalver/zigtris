@@ -36,6 +36,7 @@ same for the rest of that session.
 | Down | Move down |
 | Space | Hard drop |
 | {1,2,3} | Switch to {Solid,Gridless,Edges} style drawing respectively |
+| \` | Enable the bot |
 
 # Customization
 

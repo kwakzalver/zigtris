@@ -9,6 +9,8 @@ const std = @import("std");
 const ENABLE_RENDER_TIME = false;
 const ENABLE_GRAVITY = false;
 const GRAVITY_DELAY = 700 * std.time.ns_per_ms;
+const ENABLE_BOT_DELAY = true;
+const BOT_DELAY = 50 * std.time.ns_per_ms;
 
 var xoshiro: std.rand.Xoshiro256 = undefined;
 var rngesus: std.rand.Random = undefined;
@@ -696,12 +698,17 @@ var current_queue = [4]PieceType{
     PieceType.None,
 };
 
+var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+const allocator = arena.allocator();
+var stack = std.ArrayList(Piece).init(allocator);
+
 var lines_cleared: u64 = 0;
 var pieces_locked: u64 = 0;
 var sprint_time: u64 = undefined;
 var sprint_finished: bool = false;
 var current_colorscheme = Colorscheme.habamax();
 var current_style = Style.Solid;
+var zigtris_bot = false;
 
 fn collision() bool {
     const row = current_piece.row;
@@ -768,8 +775,6 @@ fn move_up() bool {
 }
 
 fn materialize() void {
-    // TODO push current piece onto a stack for bookkeeping
-    // * useful for in a bot, and maybe replays.
     const data = generate_piece(current_piece.type, current_piece.rotation);
     const col = current_piece.col;
     const row = current_piece.row;
@@ -782,6 +787,55 @@ fn materialize() void {
             }
         }
     }
+}
+
+fn push() void {
+    stack.append(current_piece) catch unreachable;
+    const data = generate_piece(current_piece.type, current_piece.rotation);
+    const col = current_piece.col;
+    const row = current_piece.row;
+    for (data) |drow, dr| {
+        for (drow) |e, dc| {
+            if (e != PieceType.None) {
+                const c = @intCast(usize, col + @intCast(i8, dc));
+                const r = @intCast(usize, row + @intCast(i8, dr));
+                Grid[r][c] = e;
+            }
+        }
+    }
+
+    // shift queue
+    current_piece = Piece.from_piecetype(current_queue[0]);
+    current_queue[0] = current_queue[1];
+    current_queue[1] = current_queue[2];
+    current_queue[2] = current_queue[3];
+}
+
+fn pop() void {
+    if (stack.items.len == 0) {
+        unreachable;
+    }
+    const piece = stack.pop();
+    const data = generate_piece(piece.type, piece.rotation);
+    const B = PieceType.None;
+    const col = piece.col;
+    const row = piece.row;
+    for (data) |drow, dr| {
+        for (drow) |e, dc| {
+            if (e != PieceType.None) {
+                const c = @intCast(usize, col + @intCast(i8, dc));
+                const r = @intCast(usize, row + @intCast(i8, dr));
+                Grid[r][c] = B;
+            }
+        }
+    }
+
+    // unshift queue
+    current_queue[3] = current_queue[2];
+    current_queue[2] = current_queue[1];
+    current_queue[1] = current_queue[0];
+    current_queue[0] = current_piece.type;
+    current_piece = piece;
 }
 
 fn next_piece() void {
@@ -823,6 +877,8 @@ fn reset_game() void {
     current_queue[2] = PieceType.random();
     current_queue[3] = PieceType.random();
 
+    stack.shrinkRetainingCapacity(0);
+
     game_timer.reset();
 
     sprint_time = undefined;
@@ -847,6 +903,10 @@ fn ghost_drop() i8 {
 fn hard_drop() void {
     while (move_down()) {}
     piece_lock();
+}
+
+fn hard_drop_no_lock() void {
+    while (move_down()) {}
 }
 
 const Delta = struct {
@@ -949,6 +1009,227 @@ fn clear_lines() u8 {
         }
     }
     return cleared;
+}
+
+var optimal_move: Piece = undefined;
+var optimal_score: i32 = undefined;
+
+fn find_row_start() u8 {
+    var r: u8 = 0;
+    while (r != ROWS) : (r += 1) {
+        var c: u8 = 0;
+        while (c != COLUMNS) : (c += 1) {
+            if (Grid[r][c] != PieceType.None) {
+                return r;
+            }
+        }
+    }
+    return ROWS - 1;
+}
+
+const Metrics = struct {
+    holes: u8,
+    deepest: u8,
+    background: u8,
+};
+
+fn compute_metrics(row_start: u8) Metrics {
+    const B = PieceType.None;
+    var holes: u8 = 0;
+    var deepest: u8 = 0;
+    var background: u8 = 0;
+
+    var c: u8 = 0;
+    while (c != COLUMNS) : (c += 1) {
+        var r: u8 = row_start;
+        while (r != ROWS and Grid[r][c] == B) : (r += 1) {
+            background += 1;
+            deepest = std.math.max(deepest, r);
+        }
+        while (r != ROWS) : (r += 1) {
+            if (Grid[r][c] == B) {
+                holes += 1;
+            }
+        }
+    }
+
+    return Metrics{
+        .holes = holes,
+        .deepest = deepest,
+        .background = background,
+    };
+}
+
+fn compute_score(placed: Piece) i32 {
+    const row_start = find_row_start();
+    const metrics = compute_metrics(row_start);
+    const grid_height = @intCast(i8, ROWS - row_start);
+    const piece_placement = @intCast(i8, ROWS) - placed.row;
+    const piece_orientation: i8 = switch (placed.rotation) {
+        .Right, .Left => 1,
+        else => 0,
+    };
+
+    var badness: i32 = 0;
+    // holes are the absolute worst, avoid
+    badness = (badness + metrics.holes) * 8;
+    // try to keep the structure as flat as possible
+    badness = (badness + metrics.background) * 2;
+    // some other trivia
+    badness = (badness + piece_placement) * 2;
+    badness = (badness + metrics.deepest) * 2;
+    badness = (badness + std.math.pow(i32, 2, grid_height)) * 2;
+    badness = (badness + piece_orientation) * 2;
+
+    return badness;
+}
+
+var moves = std.ArrayList(Piece).init(allocator);
+
+fn try_move(badness: i32) void {
+    hard_drop_no_lock();
+    moves.append(current_piece) catch unreachable;
+    push();
+    const b = compute_score(current_piece);
+    least_bad_moves(@divFloor(badness + b, 2));
+    pop();
+    _ = moves.pop();
+}
+
+fn least_bad_moves(badness: i32) void {
+    // early pruning for faster evaluation
+    if (moves.items.len >= 2 and badness > optimal_score) {
+        return;
+    }
+
+    if (moves.items.len == 5) {
+        if (badness < optimal_score) {
+            // the first move in this sequence of moves, is the optimal one
+            optimal_move = moves.items[0];
+            optimal_score = badness;
+        }
+        return;
+    }
+
+    // TODO can we just use slices instead? ArrayList seems wasteful
+    // only consider meaningful rotations
+    var rotations = std.ArrayList(Rotation).init(allocator);
+    defer rotations.deinit();
+    switch (current_piece.type) {
+        .J, .L, .T => {
+            rotations.appendSlice(&[_]Rotation{
+                .None,
+                .Right,
+                .Spin,
+                .Left,
+            }) catch unreachable;
+        },
+        .I, .S, .Z => {
+            rotations.appendSlice(&[_]Rotation{
+                .None,
+                .Right,
+            }) catch unreachable;
+        },
+        .O => {
+            rotations.appendSlice(&[_]Rotation{
+                .None,
+            }) catch unreachable;
+        },
+        else => unreachable,
+    }
+
+    const current_piece_backup = current_piece;
+
+    for (rotations.items) |rot| {
+        current_piece.rotation = rot;
+        try_move(badness);
+        current_piece.row = current_piece_backup.row;
+        while (move_left()) {
+            try_move(badness);
+            current_piece.row = current_piece_backup.row;
+        }
+        current_piece.col = current_piece_backup.col;
+        while (move_right()) {
+            try_move(badness);
+            current_piece.row = current_piece_backup.row;
+        }
+    }
+}
+
+fn set_optimal_move() void {
+    const S = struct {
+        var last_pieces_locked: u64 = 1337;
+        var last_piecetype: PieceType = .None;
+        var last_holding: PieceType = .None;
+    };
+
+    if (pieces_locked == S.last_pieces_locked) {
+        const lt = S.last_piecetype;
+        const lh = S.last_holding;
+        const ct = current_piece.type;
+        const ch = current_holding;
+        if ((lt == ct and lh == ch) or (lt == ch and lh == ct)) {
+            return;
+        }
+    }
+
+    optimal_move = current_piece;
+    optimal_score = 2147483647;
+    S.last_pieces_locked = pieces_locked;
+    S.last_piecetype = current_piece.type;
+    S.last_holding = current_holding;
+
+    least_bad_moves(0);
+    hold_piece();
+    least_bad_moves(0);
+    hold_piece();
+}
+
+fn fully_automatic() void {
+    set_optimal_move();
+    if (comptime ENABLE_BOT_DELAY) {
+        const S = struct {
+            var last_time: u64 = 0;
+        };
+        const time_passed = game_timer.read();
+        if (time_passed <= BOT_DELAY) {
+            // reset when game timer has been reset
+            S.last_time = time_passed;
+        }
+        const ok = (time_passed - S.last_time) >= BOT_DELAY;
+
+        if (optimal_move.type != current_piece.type and ok) {
+            hold_piece();
+            S.last_time = time_passed;
+            return;
+        }
+        if (current_piece.rotation != optimal_move.rotation and ok) {
+            current_piece.rotation = optimal_move.rotation;
+            S.last_time = time_passed;
+            return;
+        }
+        if (current_piece.col < optimal_move.col and ok and move_right()) {
+            S.last_time = time_passed;
+            return;
+        }
+        if (current_piece.col > optimal_move.col and ok and move_left()) {
+            S.last_time = time_passed;
+            return;
+        }
+        if (ok) {
+            hard_drop();
+            S.last_time = time_passed;
+            return;
+        }
+    } else {
+        if (optimal_move.type != current_piece.type) {
+            hold_piece();
+        }
+        current_piece.rotation = optimal_move.rotation;
+        while (current_piece.col < optimal_move.col and move_right()) {}
+        while (current_piece.col > optimal_move.col and move_left()) {}
+        hard_drop();
+    }
 }
 
 // simple SDL renderer wrapper
@@ -1397,6 +1678,10 @@ const Keyboard = struct {
             }
         }
 
+        if (self.single(C.SDL_SCANCODE_GRAVE)) {
+            zigtris_bot = !zigtris_bot;
+        }
+
         if (self.single(C.SDL_SCANCODE_ESCAPE)) {
             return true;
         }
@@ -1424,6 +1709,13 @@ const Keyboard = struct {
         if (self.single(C.SDL_SCANCODE_R)) {
             _ = reset_game();
         }
+
+        if (zigtris_bot) {
+            fully_automatic();
+            return false;
+        }
+
+        // Player controls start here.
 
         if (self.single(C.SDL_SCANCODE_RCTRL)) {
             _ = hold_piece();
