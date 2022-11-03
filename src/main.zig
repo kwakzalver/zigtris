@@ -1098,7 +1098,7 @@ fn try_move(badness: i32) void {
 
 fn least_bad_moves(badness: i32) void {
     // early pruning for faster evaluation
-    if (moves.items.len >= 2 and badness > optimal_score) {
+    if (badness > optimal_score) {
         return;
     }
 
