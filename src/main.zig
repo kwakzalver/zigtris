@@ -9,7 +9,7 @@ const std = @import("std");
 const ENABLE_RENDER_TIME = false;
 const ENABLE_GRAVITY = false;
 const GRAVITY_DELAY = 700 * std.time.ns_per_ms;
-const ENABLE_BOT_DELAY = true;
+const ENABLE_BOT_DELAY = false;
 const BOT_DELAY = 50 * std.time.ns_per_ms;
 
 var xoshiro: std.rand.Xoshiro256 = undefined;
@@ -1236,9 +1236,9 @@ fn fully_automatic() void {
 // simple SDL renderer wrapper
 const Renderer = struct {
     const Self = @This();
-    renderer: *C.SDL_Renderer = undefined,
+    renderer: ?*C.SDL_Renderer = null,
     color: Color = undefined,
-    font: *C.TTF_Font = undefined,
+    font: ?*C.TTF_Font = null,
     force_redraw: u8 = 0,
 
     pub fn set_color(self: *Self, c: Color) void {
@@ -1318,7 +1318,7 @@ const Renderer = struct {
         const S = struct {
             var colorscheme: usize = undefined;
             var lines: u64 = 1 << 63;
-            var text: *C.SDL_Texture = undefined;
+            var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
         if (lines == S.lines and S.colorscheme == current_colorscheme.index) {
@@ -1386,7 +1386,7 @@ const Renderer = struct {
         const S = struct {
             var colorscheme: usize = undefined;
             var time: u64 = 1 << 63;
-            var text: *C.SDL_Texture = undefined;
+            var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
         if (time == S.time and S.colorscheme == current_colorscheme.index) {
@@ -1457,7 +1457,7 @@ const Renderer = struct {
         const S = struct {
             var colorscheme: usize = undefined;
             var time: u64 = 1 << 63;
-            var text: *C.SDL_Texture = undefined;
+            var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
         if (time == S.time and S.colorscheme == current_colorscheme.index) {
@@ -1757,7 +1757,7 @@ const Keyboard = struct {
 
 fn sdl2_ttf() anyerror!*C.TTF_Font {
     const S = struct {
-        var last_font: *C.TTF_Font = undefined;
+        var last_font: ?*C.TTF_Font = null;
     };
 
     const font_memory = C.SDL_RWFromConstMem(
