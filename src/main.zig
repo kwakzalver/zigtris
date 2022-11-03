@@ -1096,6 +1096,9 @@ fn try_move(badness: i32) void {
     _ = moves.pop();
 }
 
+// TODO can we just use slices instead? ArrayList seems wasteful
+var rotations = std.ArrayList(Rotation).init(allocator);
+
 fn least_bad_moves(badness: i32) void {
     // early pruning for faster evaluation
     if (badness > optimal_score) {
@@ -1111,10 +1114,8 @@ fn least_bad_moves(badness: i32) void {
         return;
     }
 
-    // TODO can we just use slices instead? ArrayList seems wasteful
     // only consider meaningful rotations
-    var rotations = std.ArrayList(Rotation).init(allocator);
-    defer rotations.deinit();
+    rotations.shrinkRetainingCapacity(0);
     switch (current_piece.type) {
         .J, .L, .T => {
             rotations.appendSlice(&[_]Rotation{
@@ -1352,10 +1353,7 @@ const Renderer = struct {
             c_string,
             color,
         ) orelse {
-            C.SDL_Log(
-                "Unable to TTF_RenderText_Blended: %s",
-                C.SDL_GetError(),
-            );
+            C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
             return error.SDLRenderFailed;
         };
         defer C.SDL_FreeSurface(surface);
@@ -1363,10 +1361,7 @@ const Renderer = struct {
             self.renderer,
             surface,
         ) orelse {
-            C.SDL_Log(
-                "Unable to SDL_CreateTextureFromSurface: %s",
-                C.SDL_GetError(),
-            );
+            C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
             return error.SDLRenderFailed;
         };
         const tw = surface.*.w;
@@ -1380,9 +1375,7 @@ const Renderer = struct {
         _ = C.SDL_RenderCopy(self.renderer, text, null, &r);
 
         // keep previous rendered stuff
-        if (S.text != undefined) {
-            C.SDL_DestroyTexture(S.text);
-        }
+        C.SDL_DestroyTexture(S.text);
         S.colorscheme = current_colorscheme.index;
         S.lines = lines;
         S.text = text;
@@ -1453,9 +1446,7 @@ const Renderer = struct {
         _ = C.SDL_RenderCopy(self.renderer, text, null, &r);
 
         // keep previous rendered stuff
-        if (S.text != undefined) {
-            C.SDL_DestroyTexture(S.text);
-        }
+        C.SDL_DestroyTexture(S.text);
         S.colorscheme = current_colorscheme.index;
         S.time = time;
         S.text = text;
@@ -1523,9 +1514,7 @@ const Renderer = struct {
         _ = C.SDL_RenderCopy(self.renderer, text, null, &r);
 
         // keep previous rendered stuff
-        if (S.text != undefined) {
-            C.SDL_DestroyTexture(S.text);
-        }
+        C.SDL_DestroyTexture(S.text);
         S.colorscheme = current_colorscheme.index;
         S.time = time;
         S.text = text;
@@ -1793,9 +1782,7 @@ fn sdl2_ttf() anyerror!*C.TTF_Font {
         return error.SDLInitializationFailed;
     };
 
-    if (S.last_font != undefined) {
-        C.TTF_CloseFont(S.last_font);
-    }
+    C.TTF_CloseFont(S.last_font);
     S.last_font = font;
 
     return font;
