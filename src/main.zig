@@ -1657,7 +1657,7 @@ const Keyboard = struct {
                                 dimension - @intCast(i32, BORDER) * RATIO_HEIGHT,
                                 RATIO_HEIGHT,
                             ));
-                            BORDER = std.math.max(@divFloor(SIZE, 32), 1);
+                            BORDER = std.math.max(@divFloor(SIZE, 42), 1);
                             const font = sdl2_ttf() catch unreachable;
                             renderer.font = font;
                             renderer.force_redraw = 3;
