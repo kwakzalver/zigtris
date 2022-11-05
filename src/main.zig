@@ -1591,8 +1591,10 @@ const Renderer = struct {
 
 const Keyboard = struct {
     const Self = @This();
-    var initial_delay: u64 = 120 * std.time.ns_per_ms;
-    var repeat_delay: u64 = 40 * std.time.ns_per_ms;
+    // assuming 60 fps: 7 frames before repeat kicks in -> feels great to me.
+    var initial_delay: u64 = 112 * std.time.ns_per_ms;
+    // this basically means instant transmission
+    var repeat_delay: u64 = 0 * std.time.ns_per_ms;
     var holding: [C.SDL_NUM_SCANCODES]bool = .{false} ** C.SDL_NUM_SCANCODES;
     var repeating = false;
     keyboard: [*c]const u8,
