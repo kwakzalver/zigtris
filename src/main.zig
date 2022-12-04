@@ -541,88 +541,84 @@ const MinMaxRC = struct {
     max_row: i8,
     max_col: i8,
 
-    // TODO verify that no code is generated from this function, just the
-    // lookup table
     fn create_lookup_table() [PieceType.iter.len][Rotation.iter.len]MinMaxRC {
-        comptime {
-            @setEvalBranchQuota(2000);
-            var lookup_table = [_][Rotation.iter.len]MinMaxRC{
-                [_]MinMaxRC{
-                    .{
-                        .min_row = 3,
-                        .min_col = 3,
-                        .max_row = 0,
-                        .max_col = 0,
+        @setEvalBranchQuota(2000);
+        var lookup_table = [_][Rotation.iter.len]MinMaxRC{
+            [_]MinMaxRC{
+                .{
+                    .min_row = 3,
+                    .min_col = 3,
+                    .max_row = 0,
+                    .max_col = 0,
+                },
+            } ** Rotation.iter.len,
+        } ** PieceType.iter.len;
+        for (PieceType.iter) |ptype, ti| {
+            for (Rotation.iter) |prot, ri| {
+                const d = generate_piece(ptype, prot);
+                const B = PieceType.None;
+
+                var min_row: u8 = 0;
+                var min_col: u8 = 0;
+                var max_row: u8 = 3;
+                var max_col: u8 = 3;
+
+                // 🐝 🐝 🐝 🐝
+                const bees = [4]PieceType{ B, B, B, B };
+
+                while (std.mem.eql(
+                    PieceType,
+                    &bees,
+                    &[4]PieceType{
+                        d[max_row][0],
+                        d[max_row][1],
+                        d[max_row][2],
+                        d[max_row][3],
                     },
-                } ** Rotation.iter.len,
-            } ** PieceType.iter.len;
-            for (PieceType.iter) |ptype, ti| {
-                for (Rotation.iter) |prot, ri| {
-                    const d = generate_piece(ptype, prot);
-                    const B = PieceType.None;
+                )) : (max_row -= 1) {}
 
-                    var min_row: u8 = 0;
-                    var min_col: u8 = 0;
-                    var max_row: u8 = 3;
-                    var max_col: u8 = 3;
+                while (std.mem.eql(
+                    PieceType,
+                    &bees,
+                    &[4]PieceType{
+                        d[min_row][0],
+                        d[min_row][1],
+                        d[min_row][2],
+                        d[min_row][3],
+                    },
+                )) : (min_row += 1) {}
 
-                    // 🐝 🐝 🐝 🐝
-                    const bees = [4]PieceType{ B, B, B, B };
+                while (std.mem.eql(
+                    PieceType,
+                    &bees,
+                    &[4]PieceType{
+                        d[0][max_col],
+                        d[1][max_col],
+                        d[2][max_col],
+                        d[3][max_col],
+                    },
+                )) : (max_col -= 1) {}
 
-                    while (std.mem.eql(
-                        PieceType,
-                        &bees,
-                        &[4]PieceType{
-                            d[max_row][0],
-                            d[max_row][1],
-                            d[max_row][2],
-                            d[max_row][3],
-                        },
-                    )) : (max_row -= 1) {}
+                while (std.mem.eql(
+                    PieceType,
+                    &bees,
+                    &[4]PieceType{
+                        d[0][min_col],
+                        d[1][min_col],
+                        d[2][min_col],
+                        d[3][min_col],
+                    },
+                )) : (min_col += 1) {}
 
-                    while (std.mem.eql(
-                        PieceType,
-                        &bees,
-                        &[4]PieceType{
-                            d[min_row][0],
-                            d[min_row][1],
-                            d[min_row][2],
-                            d[min_row][3],
-                        },
-                    )) : (min_row += 1) {}
-
-                    while (std.mem.eql(
-                        PieceType,
-                        &bees,
-                        &[4]PieceType{
-                            d[0][max_col],
-                            d[1][max_col],
-                            d[2][max_col],
-                            d[3][max_col],
-                        },
-                    )) : (max_col -= 1) {}
-
-                    while (std.mem.eql(
-                        PieceType,
-                        &bees,
-                        &[4]PieceType{
-                            d[0][min_col],
-                            d[1][min_col],
-                            d[2][min_col],
-                            d[3][min_col],
-                        },
-                    )) : (min_col += 1) {}
-
-                    lookup_table[ti][ri] = MinMaxRC{
-                        .min_row = @intCast(i8, min_row),
-                        .min_col = @intCast(i8, min_col),
-                        .max_row = @intCast(i8, max_row),
-                        .max_col = @intCast(i8, max_col),
-                    };
-                }
+                lookup_table[ti][ri] = MinMaxRC{
+                    .min_row = @intCast(i8, min_row),
+                    .min_col = @intCast(i8, min_col),
+                    .max_row = @intCast(i8, max_row),
+                    .max_col = @intCast(i8, max_col),
+                };
             }
-            return lookup_table;
         }
+        return lookup_table;
     }
 
     fn minmax_rowcol(t: PieceType, r: Rotation) MinMaxRC {
