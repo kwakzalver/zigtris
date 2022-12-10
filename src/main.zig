@@ -1355,7 +1355,11 @@ const Renderer = struct {
         S.rect = r;
     }
 
-    pub fn draw_time_passed(self: *Self, time: u64, highlight: bool) anyerror!void {
+    pub fn draw_time_passed(
+        self: *Self,
+        time: u64,
+        highlight: bool,
+    ) anyerror!void {
         const S = struct {
             var colorscheme: usize = undefined;
             var time: u64 = 1 << 63;
@@ -1527,7 +1531,10 @@ const Renderer = struct {
             f64,
             std.time.milliTimestamp(),
         ) / 1e3;
-        const ratio: u8 = @floatToInt(u8, 40 * @fabs(@sin(3.141592 * timestamp)));
+        const ratio: u8 = @floatToInt(
+            u8,
+            40 * @fabs(@sin(3.141592 * timestamp)),
+        );
         const piece_color = Color.combine(
             current_colorscheme.from_piecetype(p),
             current_colorscheme.bg_seco,
@@ -1623,11 +1630,17 @@ const Keyboard = struct {
                         C.SDL_WINDOWEVENT_SIZE_CHANGED => {
                             // we resize based on the smaller dimension, but
                             // keep the width : height ratio into account
-                            const width = @divFloor(event.window.data1 * RATIO_HEIGHT, RATIO_WIDTH);
+                            const width = @divFloor(
+                                event.window.data1 * RATIO_HEIGHT,
+                                RATIO_WIDTH,
+                            );
                             const height = event.window.data2;
                             const dimension = std.math.min(width, height);
                             SIZE = @intCast(usize, @divFloor(
-                                dimension - @intCast(i32, BORDER) * RATIO_HEIGHT,
+                                dimension - @intCast(
+                                    i32,
+                                    BORDER,
+                                ) * RATIO_HEIGHT,
                                 RATIO_HEIGHT,
                             ));
                             BORDER = std.math.max(@divFloor(SIZE, 42), 1);
@@ -1813,7 +1826,10 @@ fn sdl2_game() anyerror!void {
 
     game_timer = try std.time.Timer.start();
     var gravity_timer = try std.time.Timer.start();
-    xoshiro = std.rand.DefaultPrng.init(@intCast(u64, std.time.milliTimestamp()));
+    xoshiro = std.rand.DefaultPrng.init(@intCast(
+        u64,
+        std.time.milliTimestamp(),
+    ));
     rngesus = xoshiro.random();
     reset_game();
 
@@ -1943,7 +1959,10 @@ test "clear lines" {
 // for example, you just got an I, and you get all other pieces twice first
 // [I] : [J L O S T Z] : [J L O S T Z] : [I]
 test "piecetypes are satisfyingly random" {
-    xoshiro = std.rand.DefaultPrng.init(@intCast(u64, std.time.milliTimestamp()));
+    xoshiro = std.rand.DefaultPrng.init(@intCast(
+        u64,
+        std.time.milliTimestamp(),
+    ));
     rngesus = xoshiro.random();
     var seen: [PieceType.iter.len]u8 = .{0} ** PieceType.iter.len;
 
