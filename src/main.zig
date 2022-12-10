@@ -27,10 +27,6 @@ var BORDER: usize = 1;
 const TARGET_FPS = 60;
 const TARGET_FPS_DELAY = @divFloor(1000, TARGET_FPS) * std.time.ns_per_ms;
 
-// const stdout = std.io.getStdOut().writer();
-// var buffer = std.io.bufferedWriter(stdout);
-// var bufio = buffer.writer();
-
 const Color = struct {
     red: u8,
     green: u8,
@@ -647,24 +643,6 @@ const Piece = struct {
             .row = 0,
         };
     }
-
-    pub fn format(
-        self: Self,
-        comptime fmt: []const u8,
-        options: std.fmt.FormatOptions,
-        writer: anytype,
-    ) !void {
-        if (fmt.len != 0) {
-            @compileError("Unknown format string: '" ++ fmt ++ "'");
-        }
-        _ = options;
-        return std.fmt.format(writer, "{any} {any}@({d},{d})", .{
-            self.type,
-            self.rotation,
-            self.x,
-            self.y,
-        });
-    }
 };
 
 // the game (you just lost)
@@ -975,7 +953,6 @@ fn rotate_spin() void {
 }
 
 fn clear_lines() u8 {
-    // std.log.info("clear_lines()", .{});
     var cleared: u8 = 0;
     var r: u8 = ROWS - 1;
     while (r != 0) {
@@ -1947,7 +1924,6 @@ fn sdl2_game() anyerror!void {
 
 pub fn main() anyerror!void {
     sdl2_game() catch {};
-    // bufio.context.flush() catch {};
 }
 
 // rigorous testing :^)
