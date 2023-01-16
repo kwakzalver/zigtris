@@ -12,17 +12,61 @@ const GRAVITY_DELAY = 700 * std.time.ns_per_ms;
 const ENABLE_BOT_DELAY = false;
 const BOT_DELAY = 50 * std.time.ns_per_ms;
 
-var xoshiro: std.rand.Xoshiro256 = undefined;
-var rngesus: std.rand.Random = undefined;
+// beautiful idiomatic global state
+const G = struct {
+    var xoshiro: std.rand.Xoshiro256 = undefined;
+    var rngesus: std.rand.Random = undefined;
+
+    var SIZE: usize = 42;
+    var BORDER: usize = 1;
+    var BSIZE: usize = 43;
+
+    var Grid = [1][COLUMNS]PieceType{
+        .{PieceType.None} ** COLUMNS,
+    } ** ROWS;
+
+    var game_timer: std.time.Timer = undefined;
+
+    // dummy placeholders
+    var current_piece = Piece{
+        .type = PieceType.None,
+        .rotation = Rotation.None,
+        .col = 3,
+        .row = 0,
+    };
+
+    var current_holding = PieceType.None;
+
+    var current_queue = [4]PieceType{
+        PieceType.None,
+        PieceType.None,
+        PieceType.None,
+        PieceType.None,
+    };
+
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const allocator = arena.allocator();
+    var stack = std.ArrayList(Piece).init(allocator);
+
+    var lines_cleared: u64 = 0;
+    var pieces_locked: u64 = 0;
+    var sprint_time: u64 = undefined;
+    var sprint_finished: bool = false;
+    var current_colorscheme = Colorscheme.habamax();
+    var current_style = Style.Solid;
+    var zigtris_bot = false;
+
+    var optimal_move: Piece = undefined;
+    var optimal_score: i32 = undefined;
+
+    var moves = std.ArrayList(Piece).init(G.allocator);
+};
 
 const FONT_BYTES = @embedFile("../assets/font.ttf");
 
 // aspect ratio for width : height
 const RATIO_WIDTH: usize = 18;
 const RATIO_HEIGHT: usize = 22;
-
-var SIZE: usize = 42;
-var BORDER: usize = 1;
 
 const TARGET_FPS = 60;
 const TARGET_FPS_DELAY = @divFloor(1000, TARGET_FPS) * std.time.ns_per_ms;
@@ -147,7 +191,7 @@ const PieceType = enum(u3) {
             };
         };
         if (S.index == 0) {
-            rngesus.shuffle(PieceType, S.types[0..]);
+            G.rngesus.shuffle(PieceType, S.types[0..]);
         }
         const t = S.types[S.index];
         S.index = (S.index + 1) % S.types.len;
@@ -649,47 +693,12 @@ const Piece = struct {
 const ROWS: u8 = 20;
 const COLUMNS: u8 = 10;
 
-var Grid = [1][COLUMNS]PieceType{
-    .{PieceType.None} ** COLUMNS,
-} ** ROWS;
-
-var game_timer: std.time.Timer = undefined;
-
-// dummy placeholders, just call reset_game at the start
-var current_piece = Piece{
-    .type = PieceType.None,
-    .rotation = Rotation.None,
-    .col = 3,
-    .row = 0,
-};
-
-var current_holding = PieceType.None;
-
-var current_queue = [4]PieceType{
-    PieceType.None,
-    PieceType.None,
-    PieceType.None,
-    PieceType.None,
-};
-
-var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-const allocator = arena.allocator();
-var stack = std.ArrayList(Piece).init(allocator);
-
-var lines_cleared: u64 = 0;
-var pieces_locked: u64 = 0;
-var sprint_time: u64 = undefined;
-var sprint_finished: bool = false;
-var current_colorscheme = Colorscheme.habamax();
-var current_style = Style.Solid;
-var zigtris_bot = false;
-
 fn collision() bool {
-    const row = current_piece.row;
-    const col = current_piece.col;
+    const row = G.current_piece.row;
+    const col = G.current_piece.col;
     const mmrc = MinMaxRC.minmax_rowcol(
-        current_piece.type,
-        current_piece.rotation,
+        G.current_piece.type,
+        G.current_piece.rotation,
     );
 
     if (col + mmrc.min_col < 0 or col + mmrc.max_col >= COLUMNS) {
@@ -702,13 +711,16 @@ fn collision() bool {
 
     // collision with pieces on the grid?
     const B = PieceType.None;
-    const data = generate_piece(current_piece.type, current_piece.rotation);
+    const data = generate_piece(
+        G.current_piece.type,
+        G.current_piece.rotation,
+    );
     for (data) |drow, dr| {
         for (drow) |e, dc| {
             if (e != B) {
                 const c = @intCast(usize, col + @intCast(i8, dc));
                 const r = @intCast(usize, row + @intCast(i8, dr));
-                if (Grid[r][c] != B) {
+                if (G.Grid[r][c] != B) {
                     return true;
                 }
             }
@@ -719,13 +731,13 @@ fn collision() bool {
 }
 
 fn move_delta(delta: Delta) bool {
-    const row = current_piece.row;
-    const col = current_piece.col;
-    current_piece.row += delta.row;
-    current_piece.col += delta.col;
+    const row = G.current_piece.row;
+    const col = G.current_piece.col;
+    G.current_piece.row += delta.row;
+    G.current_piece.col += delta.col;
     if (collision()) {
-        current_piece.row = row;
-        current_piece.col = col;
+        G.current_piece.row = row;
+        G.current_piece.col = col;
         return false;
     }
     return true;
@@ -749,47 +761,53 @@ fn move_up() bool {
 }
 
 fn materialize() void {
-    const data = generate_piece(current_piece.type, current_piece.rotation);
-    const col = current_piece.col;
-    const row = current_piece.row;
+    const data = generate_piece(
+        G.current_piece.type,
+        G.current_piece.rotation,
+    );
+    const col = G.current_piece.col;
+    const row = G.current_piece.row;
     for (data) |drow, dr| {
         for (drow) |e, dc| {
             if (e != PieceType.None) {
                 const c = @intCast(usize, col + @intCast(i8, dc));
                 const r = @intCast(usize, row + @intCast(i8, dr));
-                Grid[r][c] = e;
+                G.Grid[r][c] = e;
             }
         }
     }
 }
 
 fn push() void {
-    stack.append(current_piece) catch unreachable;
-    const data = generate_piece(current_piece.type, current_piece.rotation);
-    const col = current_piece.col;
-    const row = current_piece.row;
+    G.stack.append(G.current_piece) catch unreachable;
+    const data = generate_piece(
+        G.current_piece.type,
+        G.current_piece.rotation,
+    );
+    const col = G.current_piece.col;
+    const row = G.current_piece.row;
     for (data) |drow, dr| {
         for (drow) |e, dc| {
             if (e != PieceType.None) {
                 const c = @intCast(usize, col + @intCast(i8, dc));
                 const r = @intCast(usize, row + @intCast(i8, dr));
-                Grid[r][c] = e;
+                G.Grid[r][c] = e;
             }
         }
     }
 
     // shift queue
-    current_piece = Piece.from_piecetype(current_queue[0]);
-    current_queue[0] = current_queue[1];
-    current_queue[1] = current_queue[2];
-    current_queue[2] = current_queue[3];
+    G.current_piece = Piece.from_piecetype(G.current_queue[0]);
+    G.current_queue[0] = G.current_queue[1];
+    G.current_queue[1] = G.current_queue[2];
+    G.current_queue[2] = G.current_queue[3];
 }
 
 fn pop() void {
-    if (stack.items.len == 0) {
+    if (G.stack.items.len == 0) {
         unreachable;
     }
-    const piece = stack.pop();
+    const piece = G.stack.pop();
     const data = generate_piece(piece.type, piece.rotation);
     const B = PieceType.None;
     const col = piece.col;
@@ -799,25 +817,25 @@ fn pop() void {
             if (e != PieceType.None) {
                 const c = @intCast(usize, col + @intCast(i8, dc));
                 const r = @intCast(usize, row + @intCast(i8, dr));
-                Grid[r][c] = B;
+                G.Grid[r][c] = B;
             }
         }
     }
 
     // unshift queue
-    current_queue[3] = current_queue[2];
-    current_queue[2] = current_queue[1];
-    current_queue[1] = current_queue[0];
-    current_queue[0] = current_piece.type;
-    current_piece = piece;
+    G.current_queue[3] = G.current_queue[2];
+    G.current_queue[2] = G.current_queue[1];
+    G.current_queue[1] = G.current_queue[0];
+    G.current_queue[0] = G.current_piece.type;
+    G.current_piece = piece;
 }
 
 fn next_piece() void {
-    current_piece = Piece.from_piecetype(current_queue[0]);
-    current_queue[0] = current_queue[1];
-    current_queue[1] = current_queue[2];
-    current_queue[2] = current_queue[3];
-    current_queue[3] = PieceType.random();
+    G.current_piece = Piece.from_piecetype(G.current_queue[0]);
+    G.current_queue[0] = G.current_queue[1];
+    G.current_queue[1] = G.current_queue[2];
+    G.current_queue[2] = G.current_queue[3];
+    G.current_queue[3] = PieceType.random();
     if (collision()) {
         // game over!
         reset_game();
@@ -825,15 +843,15 @@ fn next_piece() void {
 }
 
 fn hold_piece() void {
-    const t = current_piece.type;
-    current_piece = Piece.from_piecetype(current_holding);
-    current_holding = t;
+    const t = G.current_piece.type;
+    G.current_piece = Piece.from_piecetype(G.current_holding);
+    G.current_holding = t;
 }
 
 fn clear_grid() void {
-    for (Grid) |Row, r| {
+    for (G.Grid) |Row, r| {
         for (Row) |_, c| {
-            Grid[r][c] = PieceType.None;
+            G.Grid[r][c] = PieceType.None;
         }
     }
 }
@@ -841,36 +859,36 @@ fn clear_grid() void {
 fn reset_game() void {
     clear_grid();
 
-    pieces_locked = 0;
-    lines_cleared = 0;
+    G.pieces_locked = 0;
+    G.lines_cleared = 0;
 
-    current_piece = Piece.from_piecetype(PieceType.random());
-    current_holding = PieceType.random();
-    current_queue[0] = PieceType.random();
-    current_queue[1] = PieceType.random();
-    current_queue[2] = PieceType.random();
-    current_queue[3] = PieceType.random();
+    G.current_piece = Piece.from_piecetype(PieceType.random());
+    G.current_holding = PieceType.random();
+    G.current_queue[0] = PieceType.random();
+    G.current_queue[1] = PieceType.random();
+    G.current_queue[2] = PieceType.random();
+    G.current_queue[3] = PieceType.random();
 
-    stack.shrinkRetainingCapacity(0);
+    G.stack.shrinkRetainingCapacity(0);
 
-    game_timer.reset();
+    G.game_timer.reset();
 
-    sprint_time = undefined;
-    sprint_finished = false;
+    G.sprint_time = undefined;
+    G.sprint_finished = false;
 }
 
 fn piece_lock() void {
     materialize();
-    pieces_locked += 1;
-    lines_cleared += clear_lines();
+    G.pieces_locked += 1;
+    G.lines_cleared += clear_lines();
     next_piece();
 }
 
 fn ghost_drop() i8 {
-    const backup_row = current_piece.row;
+    const backup_row = G.current_piece.row;
     while (move_down()) {}
-    const ghost_row = current_piece.row;
-    current_piece.row = backup_row;
+    const ghost_row = G.current_piece.row;
+    G.current_piece.row = backup_row;
     return ghost_row;
 }
 
@@ -914,41 +932,41 @@ fn unstuck() bool {
         };
     };
 
-    const col = current_piece.col;
-    const row = current_piece.row;
+    const col = G.current_piece.col;
+    const row = G.current_piece.row;
     for (S.deltas) |delta| {
-        current_piece.col += delta.col;
-        current_piece.row += delta.row;
+        G.current_piece.col += delta.col;
+        G.current_piece.row += delta.row;
         if (!collision()) {
             return true;
         }
-        current_piece.col = col;
-        current_piece.row = row;
+        G.current_piece.col = col;
+        G.current_piece.row = row;
     }
     return false;
 }
 
 fn rotate_right() void {
-    const r = current_piece.rotation;
-    current_piece.rotation = r.rotate_right();
+    const r = G.current_piece.rotation;
+    G.current_piece.rotation = r.rotate_right();
     if (!unstuck()) {
-        current_piece.rotation = r;
+        G.current_piece.rotation = r;
     }
 }
 
 fn rotate_left() void {
-    const r = current_piece.rotation;
-    current_piece.rotation = r.rotate_left();
+    const r = G.current_piece.rotation;
+    G.current_piece.rotation = r.rotate_left();
     if (!unstuck()) {
-        current_piece.rotation = r;
+        G.current_piece.rotation = r;
     }
 }
 
 fn rotate_spin() void {
-    const r = current_piece.rotation;
-    current_piece.rotation = r.rotate_spin();
+    const r = G.current_piece.rotation;
+    G.current_piece.rotation = r.rotate_spin();
     if (!unstuck()) {
-        current_piece.rotation = r;
+        G.current_piece.rotation = r;
     }
 }
 
@@ -959,22 +977,22 @@ fn clear_lines() u8 {
         var clear: bool = true;
         var c: u8 = 0;
         while (clear and c != COLUMNS) : (c += 1) {
-            clear = clear and Grid[r][c] != PieceType.None;
+            clear = clear and G.Grid[r][c] != PieceType.None;
         }
         if (clear) {
             var up: u8 = r - 1;
             while (up != 0) {
                 c = 0;
                 while (c != COLUMNS) : (c += 1) {
-                    Grid[up + 1][c] = Grid[up][c];
+                    G.Grid[up + 1][c] = G.Grid[up][c];
                 }
                 up -= 1;
             }
             // when up == 0
             c = 0;
             while (c != COLUMNS) : (c += 1) {
-                Grid[up + 1][c] = Grid[up][c];
-                Grid[up][c] = PieceType.None;
+                G.Grid[up + 1][c] = G.Grid[up][c];
+                G.Grid[up][c] = PieceType.None;
             }
             cleared += 1;
         } else {
@@ -984,15 +1002,12 @@ fn clear_lines() u8 {
     return cleared;
 }
 
-var optimal_move: Piece = undefined;
-var optimal_score: i32 = undefined;
-
 fn find_row_start() u8 {
     var r: u8 = 0;
     while (r != ROWS) : (r += 1) {
         var c: u8 = 0;
         while (c != COLUMNS) : (c += 1) {
-            if (Grid[r][c] != PieceType.None) {
+            if (G.Grid[r][c] != PieceType.None) {
                 return r;
             }
         }
@@ -1015,12 +1030,12 @@ fn compute_metrics(row_start: u8) Metrics {
     var c: u8 = 0;
     while (c != COLUMNS) : (c += 1) {
         var r: u8 = row_start;
-        while (r != ROWS and Grid[r][c] == B) : (r += 1) {
+        while (r != ROWS and G.Grid[r][c] == B) : (r += 1) {
             background += 1;
             deepest = std.math.max(deepest, r);
         }
         while (r != ROWS) : (r += 1) {
-            if (Grid[r][c] == B) {
+            if (G.Grid[r][c] == B) {
                 holes += 1;
             }
         }
@@ -1057,39 +1072,37 @@ fn compute_score(placed: Piece) i32 {
     return badness;
 }
 
-var moves = std.ArrayList(Piece).init(allocator);
-
 fn try_move(badness: i32) void {
     hard_drop_no_lock();
-    moves.append(current_piece) catch unreachable;
+    G.moves.append(G.current_piece) catch unreachable;
     push();
-    const b = compute_score(current_piece);
+    const b = compute_score(G.current_piece);
     least_bad_moves(@divFloor(badness + b, 2));
     pop();
-    _ = moves.pop();
+    _ = G.moves.pop();
 }
 
 // TODO can we just use slices instead? ArrayList seems wasteful
-var rotations = std.ArrayList(Rotation).init(allocator);
+var rotations = std.ArrayList(Rotation).init(G.allocator);
 
 fn least_bad_moves(badness: i32) void {
     // early pruning for faster evaluation
-    if (badness > optimal_score) {
+    if (badness > G.optimal_score) {
         return;
     }
 
-    if (moves.items.len == 5) {
-        if (badness < optimal_score) {
+    if (G.moves.items.len == 5) {
+        if (badness < G.optimal_score) {
             // the first move in this sequence of moves, is the optimal one
-            optimal_move = moves.items[0];
-            optimal_score = badness;
+            G.optimal_move = G.moves.items[0];
+            G.optimal_score = badness;
         }
         return;
     }
 
     // only consider meaningful rotations
     rotations.shrinkRetainingCapacity(0);
-    switch (current_piece.type) {
+    switch (G.current_piece.type) {
         .J, .L, .T => {
             rotations.appendSlice(&[_]Rotation{
                 .None,
@@ -1112,20 +1125,20 @@ fn least_bad_moves(badness: i32) void {
         else => unreachable,
     }
 
-    const current_piece_backup = current_piece;
+    const current_piece_backup = G.current_piece;
 
     for (rotations.items) |rot| {
-        current_piece.rotation = rot;
+        G.current_piece.rotation = rot;
         try_move(badness);
-        current_piece.row = current_piece_backup.row;
+        G.current_piece.row = current_piece_backup.row;
         while (move_left()) {
             try_move(badness);
-            current_piece.row = current_piece_backup.row;
+            G.current_piece.row = current_piece_backup.row;
         }
-        current_piece.col = current_piece_backup.col;
+        G.current_piece.col = current_piece_backup.col;
         while (move_right()) {
             try_move(badness);
-            current_piece.row = current_piece_backup.row;
+            G.current_piece.row = current_piece_backup.row;
         }
     }
 }
@@ -1137,21 +1150,21 @@ fn set_optimal_move() void {
         var last_holding: PieceType = .None;
     };
 
-    if (pieces_locked == S.last_pieces_locked) {
+    if (G.pieces_locked == S.last_pieces_locked) {
         const lt = S.last_piecetype;
         const lh = S.last_holding;
-        const ct = current_piece.type;
-        const ch = current_holding;
+        const ct = G.current_piece.type;
+        const ch = G.current_holding;
         if ((lt == ct and lh == ch) or (lt == ch and lh == ct)) {
             return;
         }
     }
 
-    optimal_move = current_piece;
-    optimal_score = 2147483647;
-    S.last_pieces_locked = pieces_locked;
-    S.last_piecetype = current_piece.type;
-    S.last_holding = current_holding;
+    G.optimal_move = G.current_piece;
+    G.optimal_score = 2147483647;
+    S.last_pieces_locked = G.pieces_locked;
+    S.last_piecetype = G.current_piece.type;
+    S.last_holding = G.current_holding;
 
     least_bad_moves(0);
     hold_piece();
@@ -1165,28 +1178,28 @@ fn fully_automatic() void {
         const S = struct {
             var last_time: u64 = 0;
         };
-        const time_passed = game_timer.read();
+        const time_passed = G.game_timer.read();
         if (time_passed <= BOT_DELAY) {
             // reset when game timer has been reset
             S.last_time = time_passed;
         }
         const ok = (time_passed - S.last_time) >= BOT_DELAY;
 
-        if (optimal_move.type != current_piece.type and ok) {
+        if (G.optimal_move.type != G.current_piece.type and ok) {
             hold_piece();
             S.last_time = time_passed;
             return;
         }
-        if (current_piece.rotation != optimal_move.rotation and ok) {
-            current_piece.rotation = optimal_move.rotation;
+        if (G.current_piece.rotation != G.optimal_move.rotation and ok) {
+            G.current_piece.rotation = G.optimal_move.rotation;
             S.last_time = time_passed;
             return;
         }
-        if (current_piece.col < optimal_move.col and ok and move_right()) {
+        if (G.current_piece.col < G.optimal_move.col and ok and move_right()) {
             S.last_time = time_passed;
             return;
         }
-        if (current_piece.col > optimal_move.col and ok and move_left()) {
+        if (G.current_piece.col > G.optimal_move.col and ok and move_left()) {
             S.last_time = time_passed;
             return;
         }
@@ -1196,12 +1209,12 @@ fn fully_automatic() void {
             return;
         }
     } else {
-        if (optimal_move.type != current_piece.type) {
+        if (G.optimal_move.type != G.current_piece.type) {
             hold_piece();
         }
-        current_piece.rotation = optimal_move.rotation;
-        while (current_piece.col < optimal_move.col and move_right()) {}
-        while (current_piece.col > optimal_move.col and move_left()) {}
+        G.current_piece.rotation = G.optimal_move.rotation;
+        while (G.current_piece.col < G.optimal_move.col and move_right()) {}
+        while (G.current_piece.col > G.optimal_move.col and move_left()) {}
         hard_drop();
     }
 }
@@ -1246,37 +1259,37 @@ const Renderer = struct {
     }
 
     pub fn fill_square(self: *Self, x: usize, y: usize) void {
-        switch (current_style) {
+        switch (G.current_style) {
             Style.Solid => {
                 self.fill_rectangle(
-                    BORDER + SIZE + x * (BORDER + SIZE),
-                    BORDER + SIZE + y * (BORDER + SIZE),
-                    SIZE,
-                    SIZE,
+                    G.BSIZE + x * G.BSIZE,
+                    G.BSIZE + y * G.BSIZE,
+                    G.SIZE,
+                    G.SIZE,
                 );
             },
             Style.Gridless => {
                 self.fill_rectangle(
-                    SIZE + x * (BORDER + SIZE),
-                    SIZE + y * (BORDER + SIZE),
-                    SIZE + BORDER,
-                    SIZE + BORDER,
+                    G.SIZE + x * G.BSIZE,
+                    G.SIZE + y * G.BSIZE,
+                    G.BSIZE,
+                    G.BSIZE,
                 );
             },
             Style.Edges => {
                 const c = self.color;
                 self.fill_rectangle(
-                    BORDER + SIZE + x * (BORDER + SIZE),
-                    BORDER + SIZE + y * (BORDER + SIZE),
-                    SIZE,
-                    SIZE,
+                    G.BSIZE + x * G.BSIZE,
+                    G.BSIZE + y * G.BSIZE,
+                    G.SIZE,
+                    G.SIZE,
                 );
-                self.set_color(current_colorscheme.bg_prim);
+                self.set_color(G.current_colorscheme.bg_prim);
                 self.fill_rectangle(
-                    BORDER + SIZE + x * (BORDER + SIZE) + (SIZE >> 2),
-                    BORDER + SIZE + y * (BORDER + SIZE) + (SIZE >> 2),
-                    SIZE >> 1,
-                    SIZE >> 1,
+                    G.BSIZE + x * G.BSIZE + (G.SIZE >> 2),
+                    G.BSIZE + y * G.BSIZE + (G.SIZE >> 2),
+                    G.SIZE >> 1,
+                    G.SIZE >> 1,
                 );
                 self.set_color(c);
             },
@@ -1284,7 +1297,7 @@ const Renderer = struct {
     }
 
     pub fn draw_dot(self: *Self, x: usize, y: usize) void {
-        self.fill_rectangle(x, y, BORDER, BORDER);
+        self.fill_rectangle(x, y, G.BORDER, G.BORDER);
     }
 
     pub fn draw_lines_cleared(self: *Self, lines: u64) anyerror!void {
@@ -1294,7 +1307,7 @@ const Renderer = struct {
             var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
-        if (lines == S.lines and S.colorscheme == current_colorscheme.index) {
+        if (lines == S.lines and S.colorscheme == G.current_colorscheme.index) {
             // re-use renderered
             if (self.force_redraw == 0) {
                 _ = C.SDL_RenderCopy(
@@ -1310,11 +1323,11 @@ const Renderer = struct {
 
         var local_buffer: [64]u8 = .{0} ** 64;
         var buf = local_buffer[0..];
-        var col_offset = (BORDER + SIZE) * COLUMNS + 3 * SIZE;
-        var row_offset = (BORDER + SIZE) * (ROWS - 6);
-        _ = std.fmt.bufPrint(buf, "{any}", .{lines}) catch {};
+        var col_offset = G.BSIZE * COLUMNS + 3 * G.SIZE;
+        var row_offset = G.BSIZE * (ROWS - 6);
+        _ = std.fmt.bufPrint(buf, "{any}", .{lines}) catch unreachable;
         const c_string = buf;
-        const c = current_colorscheme.fg_prim;
+        const c = G.current_colorscheme.fg_prim;
         const color = C.SDL_Color{
             .r = c.red,
             .g = c.green,
@@ -1349,7 +1362,7 @@ const Renderer = struct {
 
         // keep previous rendered stuff
         C.SDL_DestroyTexture(S.text);
-        S.colorscheme = current_colorscheme.index;
+        S.colorscheme = G.current_colorscheme.index;
         S.lines = lines;
         S.text = text;
         S.rect = r;
@@ -1366,7 +1379,7 @@ const Renderer = struct {
             var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
-        if (time == S.time and S.colorscheme == current_colorscheme.index) {
+        if (time == S.time and S.colorscheme == G.current_colorscheme.index) {
             // re-use renderered
             if (self.force_redraw == 0) {
                 _ = C.SDL_RenderCopy(
@@ -1382,13 +1395,13 @@ const Renderer = struct {
 
         var local_buffer: [64]u8 = .{0} ** 64;
         var buf = local_buffer[0..];
-        var col_offset = (BORDER + SIZE) * COLUMNS + 3 * SIZE;
-        var row_offset = (BORDER + SIZE) * (ROWS - 4);
-        _ = std.fmt.bufPrint(buf, "{any}", .{time}) catch {};
+        var col_offset = G.BSIZE * COLUMNS + 3 * G.SIZE;
+        var row_offset = G.BSIZE * (ROWS - 4);
+        _ = std.fmt.bufPrint(buf, "{any}", .{time}) catch unreachable;
         const c_string = buf;
         const c = switch (highlight) {
-            false => current_colorscheme.fg_prim,
-            true => current_colorscheme.piece_T,
+            false => G.current_colorscheme.fg_prim,
+            true => G.current_colorscheme.piece_T,
         };
         const color = C.SDL_Color{
             .r = c.red,
@@ -1424,7 +1437,7 @@ const Renderer = struct {
 
         // keep previous rendered stuff
         C.SDL_DestroyTexture(S.text);
-        S.colorscheme = current_colorscheme.index;
+        S.colorscheme = G.current_colorscheme.index;
         S.time = time;
         S.text = text;
         S.rect = r;
@@ -1437,7 +1450,7 @@ const Renderer = struct {
             var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
-        if (time == S.time and S.colorscheme == current_colorscheme.index) {
+        if (time == S.time and S.colorscheme == G.current_colorscheme.index) {
             // re-use renderered
             if (self.force_redraw == 0) {
                 _ = C.SDL_RenderCopy(
@@ -1453,11 +1466,11 @@ const Renderer = struct {
 
         var local_buffer: [64]u8 = .{0} ** 64;
         var buf = local_buffer[0..];
-        var col_offset = RATIO_WIDTH * (BORDER + SIZE) - (SIZE >> 1);
-        var row_offset = (BORDER + SIZE) - (SIZE >> 1);
-        _ = std.fmt.bufPrint(buf, "{any} ms", .{time}) catch {};
+        var col_offset = RATIO_WIDTH * G.BSIZE - (G.SIZE >> 1);
+        var row_offset = G.BSIZE - (G.SIZE >> 1);
+        _ = std.fmt.bufPrint(buf, "{any} ms", .{time}) catch unreachable;
         const c_string = buf;
-        const c = current_colorscheme.piece_O;
+        const c = G.current_colorscheme.piece_O;
         const color = C.SDL_Color{
             .r = c.red,
             .g = c.green,
@@ -1492,7 +1505,7 @@ const Renderer = struct {
 
         // keep previous rendered stuff
         C.SDL_DestroyTexture(S.text);
-        S.colorscheme = current_colorscheme.index;
+        S.colorscheme = G.current_colorscheme.index;
         S.time = time;
         S.text = text;
         S.rect = r;
@@ -1500,20 +1513,20 @@ const Renderer = struct {
 
     pub fn draw_grid(self: *Self) void {
         // basically the outline
-        self.set_color(current_colorscheme.fg_prim);
+        self.set_color(G.current_colorscheme.fg_prim);
         self.fill_rectangle(
-            SIZE,
-            SIZE,
-            COLUMNS * (SIZE + BORDER) + BORDER,
-            ROWS * (SIZE + BORDER) + BORDER,
+            G.SIZE,
+            G.SIZE,
+            COLUMNS * G.BSIZE + G.BORDER,
+            ROWS * G.BSIZE + G.BORDER,
         );
 
         var r: u64 = 0;
         while (r != ROWS) : (r += 1) {
             var c: u64 = 0;
             while (c != COLUMNS) : (c += 1) {
-                const t = Grid[r][c];
-                const color = current_colorscheme.from_piecetype(t);
+                const t = G.Grid[r][c];
+                const color = G.current_colorscheme.from_piecetype(t);
                 self.set_color(color);
                 self.fill_square(c, r);
             }
@@ -1536,8 +1549,8 @@ const Renderer = struct {
             40 * @fabs(@sin(3.141592 * timestamp)),
         );
         const piece_color = Color.combine(
-            current_colorscheme.from_piecetype(p),
-            current_colorscheme.bg_seco,
+            G.current_colorscheme.from_piecetype(p),
+            G.current_colorscheme.bg_seco,
             ratio,
         );
         self.set_color(piece_color);
@@ -1636,14 +1649,15 @@ const Keyboard = struct {
                             );
                             const height = event.window.data2;
                             const dimension = std.math.min(width, height);
-                            SIZE = @intCast(usize, @divFloor(
+                            G.SIZE = @intCast(usize, @divFloor(
                                 dimension - @intCast(
                                     i32,
-                                    BORDER,
+                                    G.BORDER,
                                 ) * RATIO_HEIGHT,
                                 RATIO_HEIGHT,
                             ));
-                            BORDER = std.math.max(@divFloor(SIZE, 42), 1);
+                            G.BORDER = std.math.max(@divFloor(G.SIZE, 42), 1);
+                            G.BSIZE = G.SIZE + G.BORDER;
                             const font = sdl2_ttf() catch unreachable;
                             renderer.font = font;
                             renderer.force_redraw = 3;
@@ -1656,7 +1670,7 @@ const Keyboard = struct {
         }
 
         if (self.single(C.SDL_SCANCODE_GRAVE)) {
-            zigtris_bot = !zigtris_bot;
+            G.zigtris_bot = !G.zigtris_bot;
         }
 
         if (self.single(C.SDL_SCANCODE_ESCAPE)) {
@@ -1664,30 +1678,30 @@ const Keyboard = struct {
         }
 
         if (self.single(C.SDL_SCANCODE_TAB)) {
-            current_colorscheme = current_colorscheme.next();
+            G.current_colorscheme = G.current_colorscheme.next();
         }
 
         if (self.single(C.SDL_SCANCODE_BACKSPACE)) {
-            current_colorscheme = current_colorscheme.previous();
+            G.current_colorscheme = G.current_colorscheme.previous();
         }
 
         if (self.single(C.SDL_SCANCODE_1)) {
-            current_style = Style.iter[0];
+            G.current_style = Style.iter[0];
         }
 
         if (self.single(C.SDL_SCANCODE_2)) {
-            current_style = Style.iter[1];
+            G.current_style = Style.iter[1];
         }
 
         if (self.single(C.SDL_SCANCODE_3)) {
-            current_style = Style.iter[2];
+            G.current_style = Style.iter[2];
         }
 
         if (self.single(C.SDL_SCANCODE_R)) {
             _ = reset_game();
         }
 
-        if (zigtris_bot) {
+        if (G.zigtris_bot) {
             fully_automatic();
             return false;
         }
@@ -1764,7 +1778,7 @@ fn sdl2_ttf() anyerror!*C.TTF_Font {
     const font: *C.TTF_Font = C.TTF_OpenFontRW(
         font_memory,
         0,
-        @intCast(i32, SIZE),
+        @intCast(i32, G.SIZE),
     ) orelse {
         C.SDL_Log("Unable to TTF_OpenFontRW: %s", C.TTF_GetError());
         return error.SDLInitializationFailed;
@@ -1783,8 +1797,8 @@ fn sdl2_game() anyerror!void {
     }
     defer C.SDL_Quit();
 
-    const WINDOW_WIDTH: usize = RATIO_WIDTH * (SIZE + BORDER);
-    const WINDOW_HEIGHT: usize = RATIO_HEIGHT * (SIZE + BORDER);
+    const WINDOW_WIDTH: usize = RATIO_WIDTH * G.BSIZE;
+    const WINDOW_HEIGHT: usize = RATIO_HEIGHT * G.BSIZE;
 
     // TODO
     // try SDL_WINDOW_VULKAN, if fails
@@ -1824,13 +1838,13 @@ fn sdl2_game() anyerror!void {
         .timer = timer,
     };
 
-    game_timer = try std.time.Timer.start();
+    G.game_timer = try std.time.Timer.start();
     var gravity_timer = try std.time.Timer.start();
-    xoshiro = std.rand.DefaultPrng.init(@intCast(
+    G.xoshiro = std.rand.DefaultPrng.init(@intCast(
         u64,
         std.time.milliTimestamp(),
     ));
-    rngesus = xoshiro.random();
+    G.rngesus = G.xoshiro.random();
     reset_game();
 
     var last_frame_drawn = try std.time.Timer.start();
@@ -1854,37 +1868,37 @@ fn sdl2_game() anyerror!void {
         if (last_frame_drawn.read() >= TARGET_FPS_DELAY) {
             last_frame_drawn.reset();
             // keep abstracting every bit of rendering
-            r.set_color(current_colorscheme.bg_prim);
+            r.set_color(G.current_colorscheme.bg_prim);
             r.clear();
 
             r.draw_grid();
 
             const ghost_row = ghost_drop();
             r.draw_ghost(
-                current_piece.col,
+                G.current_piece.col,
                 ghost_row,
-                current_piece.type,
-                current_piece.rotation,
+                G.current_piece.type,
+                G.current_piece.rotation,
             );
 
             const ratio: u8 = 50;
             const piece_color = Color.combine(
-                current_colorscheme.from_piecetype(current_piece.type),
-                current_colorscheme.fg_prim,
+                G.current_colorscheme.from_piecetype(G.current_piece.type),
+                G.current_colorscheme.fg_prim,
                 ratio,
             );
             r.set_color(piece_color);
             r.draw_tetromino(
-                current_piece.col,
-                current_piece.row,
-                current_piece.type,
-                current_piece.rotation,
+                G.current_piece.col,
+                G.current_piece.row,
+                G.current_piece.type,
+                G.current_piece.rotation,
             );
 
             const col_offset = COLUMNS + 2;
-            for (current_queue) |p, dr| {
+            for (G.current_queue) |p, dr| {
                 const row_offset = @intCast(i8, 1 + 3 * dr);
-                r.set_color(current_colorscheme.from_piecetype(p));
+                r.set_color(G.current_colorscheme.from_piecetype(p));
                 r.draw_tetromino(
                     col_offset,
                     row_offset,
@@ -1893,37 +1907,42 @@ fn sdl2_game() anyerror!void {
                 );
             }
 
-            r.set_color(current_colorscheme.from_piecetype(current_holding));
+            r.set_color(
+                G.current_colorscheme.from_piecetype(G.current_holding),
+            );
             r.draw_tetromino(
                 col_offset,
-                @intCast(i8, 1 + 4 * current_queue.len),
-                current_holding,
+                @intCast(i8, 1 + 4 * G.current_queue.len),
+                G.current_holding,
                 Rotation.None,
             );
 
-            r.draw_lines_cleared(lines_cleared) catch {};
+            r.draw_lines_cleared(G.lines_cleared) catch unreachable;
 
             // the game is a 40-line sprint + normal game by default, once you
             // clear 40 lines, the time in milliseconds will remain on the
             // screen for the rest of that session, R will reset the game.
             // during the sprint, only seconds will be shown, because seeing
             // milliseconds printed on the screen at all times is very annoying
-            if (!sprint_finished) {
-                if (lines_cleared < 40) {
-                    const nanoseconds = game_timer.read();
+            if (!G.sprint_finished) {
+                if (G.lines_cleared < 40) {
+                    const nanoseconds = G.game_timer.read();
                     const seconds = nanoseconds / std.time.ns_per_s;
-                    sprint_time = seconds;
+                    G.sprint_time = seconds;
                 } else {
-                    const nanoseconds = game_timer.read();
+                    const nanoseconds = G.game_timer.read();
                     const milliseconds = nanoseconds / std.time.ns_per_ms;
-                    sprint_time = milliseconds;
-                    sprint_finished = true;
+                    G.sprint_time = milliseconds;
+                    G.sprint_finished = true;
                 }
             }
-            r.draw_time_passed(sprint_time, sprint_finished) catch {};
+            r.draw_time_passed(
+                G.sprint_time,
+                G.sprint_finished,
+            ) catch unreachable;
 
             if (comptime ENABLE_RENDER_TIME) {
-                r.draw_frame_render_time(render_time) catch {};
+                r.draw_frame_render_time(render_time) catch unreachable;
             }
 
             r.show();
@@ -1939,17 +1958,17 @@ fn sdl2_game() anyerror!void {
 }
 
 pub fn main() anyerror!void {
-    sdl2_game() catch {};
+    sdl2_game() catch unreachable;
 }
 
 // rigorous testing :^)
 test "clear lines" {
     var c: u8 = 0;
     while (c != COLUMNS) : (c += 1) {
-        Grid[19][c] = PieceType.I;
-        Grid[18][c] = PieceType.I;
-        Grid[17][c] = PieceType.I;
-        Grid[16][c] = PieceType.I;
+        G.Grid[19][c] = PieceType.I;
+        G.Grid[18][c] = PieceType.I;
+        G.Grid[17][c] = PieceType.I;
+        G.Grid[16][c] = PieceType.I;
     }
     const cleared = clear_lines();
     try std.testing.expectEqual(cleared, 4);
@@ -1959,11 +1978,11 @@ test "clear lines" {
 // for example, you just got an I, and you get all other pieces twice first
 // [I] : [J L O S T Z] : [J L O S T Z] : [I]
 test "piecetypes are satisfyingly random" {
-    xoshiro = std.rand.DefaultPrng.init(@intCast(
+    G.xoshiro = std.rand.DefaultPrng.init(@intCast(
         u64,
         std.time.milliTimestamp(),
     ));
-    rngesus = xoshiro.random();
+    G.rngesus = G.xoshiro.random();
     var seen: [PieceType.iter.len]u8 = .{0} ** PieceType.iter.len;
 
     // first round
