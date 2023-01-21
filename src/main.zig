@@ -12,6 +12,19 @@ const GRAVITY_DELAY = 700 * std.time.ns_per_ms;
 const ENABLE_BOT_DELAY = false;
 const BOT_DELAY = 50 * std.time.ns_per_ms;
 
+const FONT_BYTES = @embedFile("assets/font.ttf");
+
+// aspect ratio for width : height
+const RATIO_WIDTH: usize = 18;
+const RATIO_HEIGHT: usize = 22;
+
+const TARGET_FPS = 60;
+const TARGET_FPS_DELAY = @divFloor(1000, TARGET_FPS) * std.time.ns_per_ms;
+
+// the game (you just lost)
+const ROWS: u8 = 20;
+const COLUMNS: u8 = 10;
+
 // beautiful idiomatic global state
 const G = struct {
     var xoshiro: std.rand.Xoshiro256 = undefined;
@@ -61,15 +74,6 @@ const G = struct {
 
     var moves = std.ArrayList(Piece).init(G.allocator);
 };
-
-const FONT_BYTES = @embedFile("../assets/font.ttf");
-
-// aspect ratio for width : height
-const RATIO_WIDTH: usize = 18;
-const RATIO_HEIGHT: usize = 22;
-
-const TARGET_FPS = 60;
-const TARGET_FPS_DELAY = @divFloor(1000, TARGET_FPS) * std.time.ns_per_ms;
 
 const Color = struct {
     red: u8,
@@ -689,10 +693,6 @@ const Piece = struct {
     }
 };
 
-// the game (you just lost)
-const ROWS: u8 = 20;
-const COLUMNS: u8 = 10;
-
 fn collision() bool {
     const row = G.current_piece.row;
     const col = G.current_piece.col;
@@ -1300,14 +1300,16 @@ const Renderer = struct {
         self.fill_rectangle(x, y, G.BORDER, G.BORDER);
     }
 
-    pub fn draw_lines_cleared(self: *Self, lines: u64) anyerror!void {
+    pub fn draw_lines_cleared(self: *Self, current_lines: u64) anyerror!void {
         const S = struct {
             var colorscheme: usize = undefined;
             var lines: u64 = 1 << 63;
             var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
-        if (lines == S.lines and S.colorscheme == G.current_colorscheme.index) {
+        const lines_equal = current_lines == S.lines;
+        const colors_equal = S.colorscheme == G.current_colorscheme.index;
+        if (lines_equal and colors_equal) {
             // re-use renderered
             if (self.force_redraw == 0) {
                 _ = C.SDL_RenderCopy(
@@ -1325,7 +1327,11 @@ const Renderer = struct {
         var buf = local_buffer[0..];
         var col_offset = G.BSIZE * COLUMNS + 3 * G.SIZE;
         var row_offset = G.BSIZE * (ROWS - 6);
-        _ = std.fmt.bufPrint(buf, "{any}", .{lines}) catch unreachable;
+        _ = std.fmt.bufPrint(
+            buf,
+            "{any}",
+            .{current_lines},
+        ) catch unreachable;
         const c_string = buf;
         const c = G.current_colorscheme.fg_prim;
         const color = C.SDL_Color{
@@ -1363,14 +1369,14 @@ const Renderer = struct {
         // keep previous rendered stuff
         C.SDL_DestroyTexture(S.text);
         S.colorscheme = G.current_colorscheme.index;
-        S.lines = lines;
+        S.lines = current_lines;
         S.text = text;
         S.rect = r;
     }
 
     pub fn draw_time_passed(
         self: *Self,
-        time: u64,
+        current_time: u64,
         highlight: bool,
     ) anyerror!void {
         const S = struct {
@@ -1379,7 +1385,9 @@ const Renderer = struct {
             var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
-        if (time == S.time and S.colorscheme == G.current_colorscheme.index) {
+        const time_equal = current_time == S.time;
+        const colors_equal = S.colorscheme == G.current_colorscheme.index;
+        if (time_equal and colors_equal) {
             // re-use renderered
             if (self.force_redraw == 0) {
                 _ = C.SDL_RenderCopy(
@@ -1397,7 +1405,11 @@ const Renderer = struct {
         var buf = local_buffer[0..];
         var col_offset = G.BSIZE * COLUMNS + 3 * G.SIZE;
         var row_offset = G.BSIZE * (ROWS - 4);
-        _ = std.fmt.bufPrint(buf, "{any}", .{time}) catch unreachable;
+        _ = std.fmt.bufPrint(
+            buf,
+            "{any}",
+            .{current_time},
+        ) catch unreachable;
         const c_string = buf;
         const c = switch (highlight) {
             false => G.current_colorscheme.fg_prim,
@@ -1438,19 +1450,24 @@ const Renderer = struct {
         // keep previous rendered stuff
         C.SDL_DestroyTexture(S.text);
         S.colorscheme = G.current_colorscheme.index;
-        S.time = time;
+        S.time = current_time;
         S.text = text;
         S.rect = r;
     }
 
-    pub fn draw_frame_render_time(self: *Self, time: u64) anyerror!void {
+    pub fn draw_frame_render_time(
+        self: *Self,
+        current_time: u64,
+    ) anyerror!void {
         const S = struct {
             var colorscheme: usize = undefined;
             var time: u64 = 1 << 63;
             var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
-        if (time == S.time and S.colorscheme == G.current_colorscheme.index) {
+        const time_equal = current_time == S.time;
+        const colors_equal = S.colorscheme == G.current_colorscheme.index;
+        if (time_equal and colors_equal) {
             // re-use renderered
             if (self.force_redraw == 0) {
                 _ = C.SDL_RenderCopy(
@@ -1468,7 +1485,11 @@ const Renderer = struct {
         var buf = local_buffer[0..];
         var col_offset = RATIO_WIDTH * G.BSIZE - (G.SIZE >> 1);
         var row_offset = G.BSIZE - (G.SIZE >> 1);
-        _ = std.fmt.bufPrint(buf, "{any} ms", .{time}) catch unreachable;
+        _ = std.fmt.bufPrint(
+            buf,
+            "{any} ms",
+            .{current_time},
+        ) catch unreachable;
         const c_string = buf;
         const c = G.current_colorscheme.piece_O;
         const color = C.SDL_Color{
@@ -1506,7 +1527,7 @@ const Renderer = struct {
         // keep previous rendered stuff
         C.SDL_DestroyTexture(S.text);
         S.colorscheme = G.current_colorscheme.index;
-        S.time = time;
+        S.time = current_time;
         S.text = text;
         S.rect = r;
     }
@@ -1643,15 +1664,17 @@ const Keyboard = struct {
                         C.SDL_WINDOWEVENT_SIZE_CHANGED => {
                             // we resize based on the smaller dimension, but
                             // keep the width : height ratio into account
+                            const d1 = @intCast(usize, event.window.data1);
+                            const d2 = @intCast(usize, event.window.data2);
                             const width = @divFloor(
-                                event.window.data1 * RATIO_HEIGHT,
+                                d1 * RATIO_HEIGHT,
                                 RATIO_WIDTH,
                             );
-                            const height = event.window.data2;
+                            const height = d2;
                             const dimension = std.math.min(width, height);
                             G.SIZE = @intCast(usize, @divFloor(
                                 dimension - @intCast(
-                                    i32,
+                                    usize,
                                     G.BORDER,
                                 ) * RATIO_HEIGHT,
                                 RATIO_HEIGHT,
