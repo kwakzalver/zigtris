@@ -72,6 +72,8 @@ const G = struct {
     var optimal_move: Piece = undefined;
     var optimal_score: i32 = undefined;
 
+    // TODO figure out whether we can use variable length slices instead
+    var rotations = std.ArrayList(Rotation).init(G.allocator);
     var moves = std.ArrayList(Piece).init(G.allocator);
 };
 
@@ -1082,9 +1084,6 @@ fn try_move(badness: i32) void {
     _ = G.moves.pop();
 }
 
-// TODO can we just use slices instead? ArrayList seems wasteful
-var rotations = std.ArrayList(Rotation).init(G.allocator);
-
 fn least_bad_moves(badness: i32) void {
     // early pruning for faster evaluation
     if (badness > G.optimal_score) {
@@ -1101,10 +1100,10 @@ fn least_bad_moves(badness: i32) void {
     }
 
     // only consider meaningful rotations
-    rotations.shrinkRetainingCapacity(0);
+    G.rotations.shrinkRetainingCapacity(0);
     switch (G.current_piece.type) {
         .J, .L, .T => {
-            rotations.appendSlice(&[_]Rotation{
+            G.rotations.appendSlice(&[_]Rotation{
                 .None,
                 .Right,
                 .Spin,
@@ -1112,13 +1111,13 @@ fn least_bad_moves(badness: i32) void {
             }) catch unreachable;
         },
         .I, .S, .Z => {
-            rotations.appendSlice(&[_]Rotation{
+            G.rotations.appendSlice(&[_]Rotation{
                 .None,
                 .Right,
             }) catch unreachable;
         },
         .O => {
-            rotations.appendSlice(&[_]Rotation{
+            G.rotations.appendSlice(&[_]Rotation{
                 .None,
             }) catch unreachable;
         },
@@ -1127,7 +1126,7 @@ fn least_bad_moves(badness: i32) void {
 
     const current_piece_backup = G.current_piece;
 
-    for (rotations.items) |rot| {
+    for (G.rotations.items) |rot| {
         G.current_piece.rotation = rot;
         try_move(badness);
         G.current_piece.row = current_piece_backup.row;
