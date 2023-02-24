@@ -71,9 +71,6 @@ const G = struct {
 
     var optimal_move: Piece = undefined;
     var optimal_score: i32 = undefined;
-
-    // TODO figure out whether we can use variable length slices instead
-    var rotations = std.ArrayList(Rotation).init(G.allocator);
     var moves = std.ArrayList(Piece).init(G.allocator);
 };
 
@@ -1084,6 +1081,24 @@ fn try_move(badness: i32) void {
     _ = G.moves.pop();
 }
 
+fn try_rotations(comptime rotations: []const Rotation, badness: i32) void {
+    const current_piece_backup = G.current_piece;
+    for (rotations) |rot| {
+        G.current_piece.rotation = rot;
+        try_move(badness);
+        G.current_piece.row = current_piece_backup.row;
+        while (move_left()) {
+            try_move(badness);
+            G.current_piece.row = current_piece_backup.row;
+        }
+        G.current_piece.col = current_piece_backup.col;
+        while (move_right()) {
+            try_move(badness);
+            G.current_piece.row = current_piece_backup.row;
+        }
+    }
+}
+
 fn least_bad_moves(badness: i32) void {
     // early pruning for faster evaluation
     if (badness > G.optimal_score) {
@@ -1100,45 +1115,27 @@ fn least_bad_moves(badness: i32) void {
     }
 
     // only consider meaningful rotations
-    G.rotations.shrinkRetainingCapacity(0);
     switch (G.current_piece.type) {
         .J, .L, .T => {
-            G.rotations.appendSlice(&[_]Rotation{
+            try_rotations(&[_]Rotation{
                 .None,
                 .Right,
                 .Spin,
                 .Left,
-            }) catch unreachable;
+            }, badness);
         },
         .I, .S, .Z => {
-            G.rotations.appendSlice(&[_]Rotation{
+            try_rotations(&[_]Rotation{
                 .None,
                 .Right,
-            }) catch unreachable;
+            }, badness);
         },
         .O => {
-            G.rotations.appendSlice(&[_]Rotation{
+            try_rotations(&[_]Rotation{
                 .None,
-            }) catch unreachable;
+            }, badness);
         },
         else => unreachable,
-    }
-
-    const current_piece_backup = G.current_piece;
-
-    for (G.rotations.items) |rot| {
-        G.current_piece.rotation = rot;
-        try_move(badness);
-        G.current_piece.row = current_piece_backup.row;
-        while (move_left()) {
-            try_move(badness);
-            G.current_piece.row = current_piece_backup.row;
-        }
-        G.current_piece.col = current_piece_backup.col;
-        while (move_right()) {
-            try_move(badness);
-            G.current_piece.row = current_piece_backup.row;
-        }
     }
 }
 
