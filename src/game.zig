@@ -8,6 +8,9 @@ pub const COLUMNS: u8 = 10;
 const Piece = definitions.Piece;
 const PieceType = definitions.PieceType;
 const Rotation = definitions.Rotation;
+const MinMaxRC = definitions.MinMaxRC;
+const Delta = definitions.Delta;
+const Metrics = definitions.Metrics;
 const Colorscheme = definitions.Colorscheme;
 const Style = definitions.Style;
 
@@ -48,7 +51,7 @@ pub const G = struct {
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     const allocator = arena.allocator();
-    pub var stack = std.ArrayList(Piece).init(allocator);
+    var stack = std.ArrayList(Piece).init(allocator);
 
     pub var lines_cleared: u64 = 0;
     pub var pieces_locked: u64 = 0;
@@ -58,106 +61,9 @@ pub const G = struct {
     pub var current_style = Style.Solid;
     pub var zigtris_bot = false;
 
-    pub var optimal_move: Piece = undefined;
-    pub var optimal_score: i32 = undefined;
-    pub var moves = std.ArrayList(Piece).init(G.allocator);
-};
-
-const MinMaxRC = struct {
-    min_row: i8,
-    min_col: i8,
-    max_row: i8,
-    max_col: i8,
-
-    fn create_lookup_table() [PieceType.iter.len][Rotation.iter.len]MinMaxRC {
-        @setEvalBranchQuota(2000);
-        var lookup_table = [_][Rotation.iter.len]MinMaxRC{
-            [_]MinMaxRC{
-                .{
-                    .min_row = 3,
-                    .min_col = 3,
-                    .max_row = 0,
-                    .max_col = 0,
-                },
-            } ** Rotation.iter.len,
-        } ** PieceType.iter.len;
-        for (PieceType.iter) |ptype, ti| {
-            for (Rotation.iter) |prot, ri| {
-                const d = generate_piece(ptype, prot);
-                const B = PieceType.None;
-
-                var min_row: u8 = 0;
-                var min_col: u8 = 0;
-                var max_row: u8 = 3;
-                var max_col: u8 = 3;
-
-                // 🐝 🐝 🐝 🐝
-                const bees = [4]PieceType{ B, B, B, B };
-
-                while (std.mem.eql(
-                    PieceType,
-                    &bees,
-                    &[4]PieceType{
-                        d[max_row][0],
-                        d[max_row][1],
-                        d[max_row][2],
-                        d[max_row][3],
-                    },
-                )) : (max_row -= 1) {}
-
-                while (std.mem.eql(
-                    PieceType,
-                    &bees,
-                    &[4]PieceType{
-                        d[min_row][0],
-                        d[min_row][1],
-                        d[min_row][2],
-                        d[min_row][3],
-                    },
-                )) : (min_row += 1) {}
-
-                while (std.mem.eql(
-                    PieceType,
-                    &bees,
-                    &[4]PieceType{
-                        d[0][max_col],
-                        d[1][max_col],
-                        d[2][max_col],
-                        d[3][max_col],
-                    },
-                )) : (max_col -= 1) {}
-
-                while (std.mem.eql(
-                    PieceType,
-                    &bees,
-                    &[4]PieceType{
-                        d[0][min_col],
-                        d[1][min_col],
-                        d[2][min_col],
-                        d[3][min_col],
-                    },
-                )) : (min_col += 1) {}
-
-                lookup_table[ti][ri] = MinMaxRC{
-                    .min_row = @intCast(i8, min_row),
-                    .min_col = @intCast(i8, min_col),
-                    .max_row = @intCast(i8, max_row),
-                    .max_col = @intCast(i8, max_col),
-                };
-            }
-        }
-        return lookup_table;
-    }
-
-    fn minmax_rowcol(t: PieceType, r: Rotation) MinMaxRC {
-        const S = struct {
-            const lookup_table = MinMaxRC.create_lookup_table();
-        };
-
-        const pi = t.iter_index();
-        const ri = r.iter_index();
-        return S.lookup_table[pi][ri];
-    }
+    var optimal_move: Piece = undefined;
+    var optimal_score: i32 = undefined;
+    var moves = std.ArrayList(Piece).init(G.allocator);
 };
 
 fn collision() bool {
@@ -178,7 +84,7 @@ fn collision() bool {
 
     // collision with pieces on the grid?
     const B = PieceType.None;
-    const data = generate_piece(
+    const data = PieceType.piecetype_rotation_matrix(
         G.current_piece.type,
         G.current_piece.rotation,
     );
@@ -211,7 +117,7 @@ fn move_delta(delta: Delta) bool {
 }
 
 fn materialize() void {
-    const data = generate_piece(
+    const data = PieceType.piecetype_rotation_matrix(
         G.current_piece.type,
         G.current_piece.rotation,
     );
@@ -230,7 +136,7 @@ fn materialize() void {
 
 fn push() void {
     G.stack.append(G.current_piece) catch unreachable;
-    const data = generate_piece(
+    const data = PieceType.piecetype_rotation_matrix(
         G.current_piece.type,
         G.current_piece.rotation,
     );
@@ -258,7 +164,7 @@ fn pop() void {
         unreachable;
     }
     const piece = G.stack.pop();
-    const data = generate_piece(piece.type, piece.rotation);
+    const data = PieceType.piecetype_rotation_matrix(piece.type, piece.rotation);
     const B = PieceType.None;
     const col = piece.col;
     const row = piece.row;
@@ -305,207 +211,6 @@ fn piece_lock() void {
     G.pieces_locked += 1;
     G.lines_cleared += clear_lines();
     next_piece();
-}
-
-pub fn generate_piece(t: PieceType, r: Rotation) [4][4]PieceType {
-    const B = PieceType.None;
-    const I = PieceType.I;
-    const O = PieceType.O;
-    const J = PieceType.J;
-    const L = PieceType.L;
-    const S = PieceType.S;
-    const Z = PieceType.Z;
-    const T = PieceType.T;
-    return switch (t) {
-        I => switch (r) {
-            .None => [4][4]PieceType{
-                .{ B, B, B, B },
-                .{ I, I, I, I },
-                .{ B, B, B, B },
-                .{ B, B, B, B },
-            },
-            .Right => [4][4]PieceType{
-                .{ B, B, I, B },
-                .{ B, B, I, B },
-                .{ B, B, I, B },
-                .{ B, B, I, B },
-            },
-            .Spin => [4][4]PieceType{
-                .{ B, B, B, B },
-                .{ B, B, B, B },
-                .{ I, I, I, I },
-                .{ B, B, B, B },
-            },
-            .Left => [4][4]PieceType{
-                .{ B, I, B, B },
-                .{ B, I, B, B },
-                .{ B, I, B, B },
-                .{ B, I, B, B },
-            },
-        },
-        O => switch (r) {
-            .None => [4][4]PieceType{
-                .{ O, O, B, B },
-                .{ O, O, B, B },
-                .{ B, B, B, B },
-                .{ B, B, B, B },
-            },
-            .Right => [4][4]PieceType{
-                .{ B, O, O, B },
-                .{ B, O, O, B },
-                .{ B, B, B, B },
-                .{ B, B, B, B },
-            },
-            .Spin => [4][4]PieceType{
-                .{ B, B, B, B },
-                .{ B, O, O, B },
-                .{ B, O, O, B },
-                .{ B, B, B, B },
-            },
-            .Left => [4][4]PieceType{
-                .{ B, B, B, B },
-                .{ O, O, B, B },
-                .{ O, O, B, B },
-                .{ B, B, B, B },
-            },
-        },
-        J => switch (r) {
-            .None => [4][4]PieceType{
-                .{ J, B, B, B },
-                .{ J, J, J, B },
-                .{ B, B, B, B },
-                .{ B, B, B, B },
-            },
-            .Right => [4][4]PieceType{
-                .{ B, J, J, B },
-                .{ B, J, B, B },
-                .{ B, J, B, B },
-                .{ B, B, B, B },
-            },
-            .Spin => [4][4]PieceType{
-                .{ B, B, B, B },
-                .{ J, J, J, B },
-                .{ B, B, J, B },
-                .{ B, B, B, B },
-            },
-            .Left => [4][4]PieceType{
-                .{ B, J, B, B },
-                .{ B, J, B, B },
-                .{ J, J, B, B },
-                .{ B, B, B, B },
-            },
-        },
-        L => switch (r) {
-            .None => [4][4]PieceType{
-                .{ B, B, L, B },
-                .{ L, L, L, B },
-                .{ B, B, B, B },
-                .{ B, B, B, B },
-            },
-            .Right => [4][4]PieceType{
-                .{ B, L, B, B },
-                .{ B, L, B, B },
-                .{ B, L, L, B },
-                .{ B, B, B, B },
-            },
-            .Spin => [4][4]PieceType{
-                .{ B, B, B, B },
-                .{ L, L, L, B },
-                .{ L, B, B, B },
-                .{ B, B, B, B },
-            },
-            .Left => [4][4]PieceType{
-                .{ L, L, B, B },
-                .{ B, L, B, B },
-                .{ B, L, B, B },
-                .{ B, B, B, B },
-            },
-        },
-        S => switch (r) {
-            .None => [4][4]PieceType{
-                .{ B, S, S, B },
-                .{ S, S, B, B },
-                .{ B, B, B, B },
-                .{ B, B, B, B },
-            },
-            .Right => [4][4]PieceType{
-                .{ B, S, B, B },
-                .{ B, S, S, B },
-                .{ B, B, S, B },
-                .{ B, B, B, B },
-            },
-            .Spin => [4][4]PieceType{
-                .{ B, B, B, B },
-                .{ B, S, S, B },
-                .{ S, S, B, B },
-                .{ B, B, B, B },
-            },
-            .Left => [4][4]PieceType{
-                .{ S, B, B, B },
-                .{ S, S, B, B },
-                .{ B, S, B, B },
-                .{ B, B, B, B },
-            },
-        },
-        Z => switch (r) {
-            .None => [4][4]PieceType{
-                .{ Z, Z, B, B },
-                .{ B, Z, Z, B },
-                .{ B, B, B, B },
-                .{ B, B, B, B },
-            },
-            .Right => [4][4]PieceType{
-                .{ B, B, Z, B },
-                .{ B, Z, Z, B },
-                .{ B, Z, B, B },
-                .{ B, B, B, B },
-            },
-            .Spin => [4][4]PieceType{
-                .{ B, B, B, B },
-                .{ Z, Z, B, B },
-                .{ B, Z, Z, B },
-                .{ B, B, B, B },
-            },
-            .Left => [4][4]PieceType{
-                .{ B, Z, B, B },
-                .{ Z, Z, B, B },
-                .{ Z, B, B, B },
-                .{ B, B, B, B },
-            },
-        },
-        T => switch (r) {
-            .None => [4][4]PieceType{
-                .{ B, T, B, B },
-                .{ T, T, T, B },
-                .{ B, B, B, B },
-                .{ B, B, B, B },
-            },
-            .Right => [4][4]PieceType{
-                .{ B, T, B, B },
-                .{ B, T, T, B },
-                .{ B, T, B, B },
-                .{ B, B, B, B },
-            },
-            .Spin => [4][4]PieceType{
-                .{ B, B, B, B },
-                .{ T, T, T, B },
-                .{ B, T, B, B },
-                .{ B, B, B, B },
-            },
-            .Left => [4][4]PieceType{
-                .{ B, T, B, B },
-                .{ T, T, B, B },
-                .{ B, T, B, B },
-                .{ B, B, B, B },
-            },
-        },
-        B => [4][4]PieceType{
-            .{ B, B, B, B },
-            .{ B, B, B, B },
-            .{ B, B, B, B },
-            .{ B, B, B, B },
-        },
-    };
 }
 
 pub fn move_left() bool {
@@ -575,11 +280,6 @@ pub fn hard_drop() void {
 fn hard_drop_no_lock() void {
     while (move_down()) {}
 }
-
-const Delta = struct {
-    row: i8 = 0,
-    col: i8 = 0,
-};
 
 fn unstuck() bool {
     const S = struct {
@@ -689,12 +389,6 @@ fn find_row_start() u8 {
     }
     return ROWS - 1;
 }
-
-const Metrics = struct {
-    holes: u8,
-    deepest: u8,
-    background: u8,
-};
 
 fn compute_metrics(row_start: u8) Metrics {
     const B = PieceType.None;

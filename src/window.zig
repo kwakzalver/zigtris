@@ -39,7 +39,7 @@ const Renderer = struct {
     font: ?*C.TTF_Font = null,
     force_redraw: u8 = 0,
 
-    pub fn set_color(self: *Self, c: Color) void {
+    fn set_color(self: *Self, c: Color) void {
         self.color = c;
         _ = C.SDL_SetRenderDrawColor(
             self.renderer,
@@ -50,11 +50,11 @@ const Renderer = struct {
         );
     }
 
-    pub fn clear(self: *Self) void {
+    fn clear(self: *Self) void {
         _ = C.SDL_RenderClear(self.renderer);
     }
 
-    pub fn fill_rectangle(
+    fn fill_rectangle(
         self: *Self,
         x: usize,
         y: usize,
@@ -70,7 +70,7 @@ const Renderer = struct {
         _ = C.SDL_RenderFillRect(self.renderer, &rectangle);
     }
 
-    pub fn fill_square(self: *Self, x: usize, y: usize) void {
+    fn fill_square(self: *Self, x: usize, y: usize) void {
         switch (G.current_style) {
             Style.Solid => {
                 self.fill_rectangle(
@@ -108,11 +108,11 @@ const Renderer = struct {
         }
     }
 
-    pub fn draw_dot(self: *Self, x: usize, y: usize) void {
+    fn draw_dot(self: *Self, x: usize, y: usize) void {
         self.fill_rectangle(x, y, G.BORDER, G.BORDER);
     }
 
-    pub fn draw_lines_cleared(self: *Self, current_lines: u64) anyerror!void {
+    fn draw_lines_cleared(self: *Self, current_lines: u64) anyerror!void {
         const S = struct {
             var colorscheme: usize = undefined;
             var lines: u64 = 1 << 63;
@@ -186,7 +186,7 @@ const Renderer = struct {
         S.rect = r;
     }
 
-    pub fn draw_time_passed(
+    fn draw_time_passed(
         self: *Self,
         current_time: u64,
         highlight: bool,
@@ -267,7 +267,7 @@ const Renderer = struct {
         S.rect = r;
     }
 
-    pub fn draw_frame_render_time(
+    fn draw_frame_render_time(
         self: *Self,
         current_time: u64,
     ) anyerror!void {
@@ -344,7 +344,7 @@ const Renderer = struct {
         S.rect = r;
     }
 
-    pub fn draw_grid(self: *Self) void {
+    fn draw_grid(self: *Self) void {
         // basically the outline
         self.set_color(G.current_colorscheme.fg_prim);
         self.fill_rectangle(
@@ -366,7 +366,7 @@ const Renderer = struct {
         }
     }
 
-    pub fn draw_ghost(
+    fn draw_ghost(
         self: *Self,
         col: i8,
         row: i8,
@@ -390,14 +390,14 @@ const Renderer = struct {
         self.draw_tetromino(col, row, p, r);
     }
 
-    pub fn draw_tetromino(
+    fn draw_tetromino(
         self: *Self,
         col: i8,
         row: i8,
         p: PieceType,
         r: Rotation,
     ) void {
-        const data = game.generate_piece(p, r);
+        const data = PieceType.piecetype_rotation_matrix(p, r);
         for (data) |drow, dr| {
             for (drow) |e, dc| {
                 if (e != PieceType.None) {
@@ -409,7 +409,7 @@ const Renderer = struct {
         }
     }
 
-    pub fn show(self: *Self) void {
+    fn show(self: *Self) void {
         C.SDL_RenderPresent(self.renderer);
         C.SDL_Delay(0);
     }
@@ -426,7 +426,7 @@ const Keyboard = struct {
     keyboard: [*c]const u8,
     timer: std.time.Timer,
 
-    pub fn single(self: *Self, k: C.SDL_Scancode) bool {
+    fn single(self: *Self, k: C.SDL_Scancode) bool {
         var v: bool = false;
         if (self.keyboard[k] != 0) {
             if (!Keyboard.holding[k]) {
@@ -440,7 +440,7 @@ const Keyboard = struct {
         return v;
     }
 
-    pub fn repeats(self: *Self, k: C.SDL_Scancode, delay: u64) bool {
+    fn repeats(self: *Self, k: C.SDL_Scancode, delay: u64) bool {
         var v: bool = false;
         if (self.keyboard[k] != 0) {
             if (!Keyboard.holding[k]) {
@@ -463,7 +463,7 @@ const Keyboard = struct {
         return v;
     }
 
-    pub fn handle_input(self: *Self, renderer: *Renderer) bool {
+    fn handle_input(self: *Self, renderer: *Renderer) bool {
         var event: C.SDL_Event = undefined;
 
         while (C.SDL_PollEvent(&event) != 0) {
@@ -775,7 +775,9 @@ pub fn sdl2_game() anyerror!void {
             ) catch unreachable;
 
             if (comptime ENABLE_RENDER_TIME) {
-                r.draw_frame_render_time(render_time) catch unreachable;
+                r.draw_frame_render_time(
+                    std.math.max(1, render_time),
+                ) catch unreachable;
             }
 
             r.show();
