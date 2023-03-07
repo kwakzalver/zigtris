@@ -8,11 +8,14 @@ pub const COLUMNS: u8 = 10;
 const Piece = definitions.Piece;
 const PieceType = definitions.PieceType;
 const Rotation = definitions.Rotation;
+
+const Color = definitions.Color;
+const Colorscheme = definitions.Colorscheme;
+const Style = definitions.Style;
+
 const MinMaxRC = definitions.MinMaxRC;
 const Delta = definitions.Delta;
 const Metrics = definitions.Metrics;
-const Colorscheme = definitions.Colorscheme;
-const Style = definitions.Style;
 
 const ENABLE_BOT_DELAY = false;
 const BOT_DELAY = 50 * std.time.ns_per_ms;
