@@ -17,7 +17,7 @@ const MinMaxRC = definitions.MinMaxRC;
 const Delta = definitions.Delta;
 const Metrics = definitions.Metrics;
 
-const ENABLE_BOT_DELAY = false;
+const ENABLE_BOT_DELAY = true;
 const BOT_DELAY = 50 * std.time.ns_per_ms;
 
 // beautiful idiomatic global state variables
@@ -532,8 +532,10 @@ fn set_optimal_move() void {
         }
     }
 
+    // dirty initialization
     G.optimal_move = G.current_piece;
     G.optimal_score = std.math.maxInt(i32);
+
     S.last_pieces_locked = G.pieces_locked;
     S.last_piecetype = G.current_piece.type;
     S.last_holding = G.current_holding;
@@ -544,50 +546,59 @@ fn set_optimal_move() void {
     hold_piece();
 }
 
+fn fully_automatic_delayed() void {
+    const S = struct {
+        var last_time: u64 = 0;
+    };
+    const time_passed = G.game_timer.read();
+    if (time_passed <= BOT_DELAY) {
+        // reset when game timer has been reset
+        S.last_time = time_passed;
+    }
+    const ok = (time_passed - S.last_time) >= BOT_DELAY;
+
+    if (G.optimal_move.type != G.current_piece.type and ok) {
+        hold_piece();
+        S.last_time = time_passed;
+        return;
+    }
+    if (G.current_piece.rotation != G.optimal_move.rotation and ok) {
+        G.current_piece.rotation = G.optimal_move.rotation;
+        S.last_time = time_passed;
+        return;
+    }
+    if (G.current_piece.col < G.optimal_move.col and ok and move_right()) {
+        S.last_time = time_passed;
+        return;
+    }
+    if (G.current_piece.col > G.optimal_move.col and ok and move_left()) {
+        S.last_time = time_passed;
+        return;
+    }
+    if (ok) {
+        hard_drop();
+        S.last_time = time_passed;
+        return;
+    }
+}
+
+fn fully_automatic_fast() void {
+    if (G.optimal_move.type != G.current_piece.type) {
+        hold_piece();
+    }
+
+    G.current_piece.rotation = G.optimal_move.rotation;
+    while (G.current_piece.col < G.optimal_move.col and move_right()) {}
+    while (G.current_piece.col > G.optimal_move.col and move_left()) {}
+    hard_drop();
+}
+
 pub fn fully_automatic() void {
     set_optimal_move();
     if (comptime ENABLE_BOT_DELAY) {
-        const S = struct {
-            var last_time: u64 = 0;
-        };
-        const time_passed = G.game_timer.read();
-        if (time_passed <= BOT_DELAY) {
-            // reset when game timer has been reset
-            S.last_time = time_passed;
-        }
-        const ok = (time_passed - S.last_time) >= BOT_DELAY;
-
-        if (G.optimal_move.type != G.current_piece.type and ok) {
-            hold_piece();
-            S.last_time = time_passed;
-            return;
-        }
-        if (G.current_piece.rotation != G.optimal_move.rotation and ok) {
-            G.current_piece.rotation = G.optimal_move.rotation;
-            S.last_time = time_passed;
-            return;
-        }
-        if (G.current_piece.col < G.optimal_move.col and ok and move_right()) {
-            S.last_time = time_passed;
-            return;
-        }
-        if (G.current_piece.col > G.optimal_move.col and ok and move_left()) {
-            S.last_time = time_passed;
-            return;
-        }
-        if (ok) {
-            hard_drop();
-            S.last_time = time_passed;
-            return;
-        }
+        fully_automatic_delayed();
     } else {
-        if (G.optimal_move.type != G.current_piece.type) {
-            hold_piece();
-        }
-        G.current_piece.rotation = G.optimal_move.rotation;
-        while (G.current_piece.col < G.optimal_move.col and move_right()) {}
-        while (G.current_piece.col > G.optimal_move.col and move_left()) {}
-        hard_drop();
+        fully_automatic_fast();
     }
 }
 
