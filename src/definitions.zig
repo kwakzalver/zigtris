@@ -278,7 +278,10 @@ pub const PieceType = enum(u3) {
             unreachable;
     }
 
-    pub fn piecetype_rotation_matrix(t: PieceType, r: Rotation) [4][4]PieceType {
+    pub fn piecetype_rotation_matrix(
+        t: PieceType,
+        r: Rotation,
+    ) [4][4]PieceType {
         const B = PieceType.None;
         const I = PieceType.I;
         const O = PieceType.O;
@@ -488,16 +491,8 @@ pub const MinMaxRC = struct {
 
     fn create_lookup_table() [PieceType.iter.len][Rotation.iter.len]MinMaxRC {
         @setEvalBranchQuota(2000);
-        var lookup_table = [_][Rotation.iter.len]MinMaxRC{
-            [_]MinMaxRC{
-                .{
-                    .min_row = 3,
-                    .min_col = 3,
-                    .max_row = 0,
-                    .max_col = 0,
-                },
-            } ** Rotation.iter.len,
-        } ** PieceType.iter.len;
+        var lookup_table: [PieceType.iter.len][Rotation.iter.len]MinMaxRC =
+            undefined;
         for (PieceType.iter) |ptype, ti| {
             for (Rotation.iter) |prot, ri| {
                 const d = PieceType.piecetype_rotation_matrix(ptype, prot);

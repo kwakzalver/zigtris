@@ -167,7 +167,10 @@ fn pop() void {
         unreachable;
     }
     const piece = G.stack.pop();
-    const data = PieceType.piecetype_rotation_matrix(piece.type, piece.rotation);
+    const data = PieceType.piecetype_rotation_matrix(
+        piece.type,
+        piece.rotation,
+    );
     const B = PieceType.None;
     const col = piece.col;
     const row = piece.row;
