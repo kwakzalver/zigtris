@@ -82,43 +82,43 @@ const Renderer = struct {
             },
             Style.Gridless => {
                 self.fill_rectangle(
-                    G.SIZE + x * G.BSIZE,
-                    G.SIZE + y * G.BSIZE,
-                    G.BSIZE,
-                    G.BSIZE,
+                    G.BSIZE + x * G.BSIZE,
+                    G.BSIZE + y * G.BSIZE,
+                    G.SIZE,
+                    G.SIZE,
                 );
             },
             Style.Boxes => {
                 const c = self.color;
                 self.fill_rectangle(
-                    G.SIZE + x * G.BSIZE,
-                    G.SIZE + y * G.BSIZE,
-                    G.BSIZE,
-                    G.BSIZE,
+                    G.BSIZE + x * G.BSIZE,
+                    G.BSIZE + y * G.BSIZE,
+                    G.SIZE,
+                    G.SIZE,
                 );
                 self.set_color(G.current_colorscheme.bg_prim);
                 self.fill_rectangle(
-                    G.SIZE + x * G.BSIZE + (G.SIZE >> 2),
-                    G.SIZE + y * G.BSIZE + (G.SIZE >> 2),
-                    G.BSIZE >> 1,
-                    G.BSIZE >> 1,
+                    G.BSIZE + x * G.BSIZE + (G.SIZE >> 2),
+                    G.BSIZE + y * G.BSIZE + (G.SIZE >> 2),
+                    G.SIZE >> 1,
+                    G.SIZE >> 1,
                 );
                 self.set_color(c);
             },
             Style.Edges => {
                 const c = self.color;
                 self.fill_rectangle(
-                    G.SIZE + x * G.BSIZE,
-                    G.SIZE + y * G.BSIZE,
-                    G.BSIZE,
-                    G.BSIZE,
+                    G.BSIZE + x * G.BSIZE,
+                    G.BSIZE + y * G.BSIZE,
+                    G.SIZE,
+                    G.SIZE,
                 );
                 self.set_color(G.current_colorscheme.bg_prim);
                 self.fill_rectangle(
-                    G.SIZE + x * G.BSIZE + 8 * G.BORDER,
-                    G.SIZE + y * G.BSIZE + 8 * G.BORDER,
-                    G.BSIZE - 16 * G.BORDER,
-                    G.BSIZE - 16 * G.BORDER,
+                    G.BSIZE + x * G.BSIZE + 8 * G.BORDER,
+                    G.BSIZE + y * G.BSIZE + 8 * G.BORDER,
+                    G.SIZE - 16 * G.BORDER,
+                    G.SIZE - 16 * G.BORDER,
                 );
                 self.set_color(c);
             },
@@ -363,13 +363,18 @@ const Renderer = struct {
 
     fn draw_grid(self: *Self) void {
         // basically the outline
-        self.set_color(G.current_colorscheme.fg_prim);
-        self.fill_rectangle(
-            G.SIZE,
-            G.SIZE,
-            game.COLUMNS * G.BSIZE + G.BORDER,
-            game.ROWS * G.BSIZE + G.BORDER,
-        );
+        switch (G.current_style) {
+            Style.Solid => {
+                self.set_color(G.current_colorscheme.fg_prim);
+                self.fill_rectangle(
+                    G.SIZE,
+                    G.SIZE,
+                    game.COLUMNS * G.BSIZE + G.BORDER,
+                    game.ROWS * G.BSIZE + G.BORDER,
+                );
+            },
+            else => {},
+        }
 
         var r: u64 = 0;
         while (r != game.ROWS) : (r += 1) {
