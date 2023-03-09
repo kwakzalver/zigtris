@@ -35,7 +35,7 @@ same for the rest of that session.
 | Right | Move right |
 | Down | Move down |
 | Space | Hard drop |
-| {1,2,3} | Switch to {Solid,Gridless,Edges} style drawing respectively |
+| {1,2,3,4} | Switch to {Solid,Gridless,Boxes,Edges} style respectively |
 | \` | Enable the bot |
 
 # Customization
