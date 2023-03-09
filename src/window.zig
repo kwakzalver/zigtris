@@ -88,7 +88,7 @@ const Renderer = struct {
                     G.BSIZE,
                 );
             },
-            Style.Edges => {
+            Style.Boxes => {
                 const c = self.color;
                 self.fill_rectangle(
                     G.BSIZE + x * G.BSIZE,
@@ -102,6 +102,23 @@ const Renderer = struct {
                     G.BSIZE + y * G.BSIZE + (G.SIZE >> 2),
                     G.SIZE >> 1,
                     G.SIZE >> 1,
+                );
+                self.set_color(c);
+            },
+            Style.Edges => {
+                const c = self.color;
+                self.fill_rectangle(
+                    G.BSIZE + x * G.BSIZE,
+                    G.BSIZE + y * G.BSIZE,
+                    G.SIZE,
+                    G.SIZE,
+                );
+                self.set_color(G.current_colorscheme.bg_prim);
+                self.fill_rectangle(
+                    G.BSIZE + x * G.BSIZE + 8 * G.BORDER,
+                    G.BSIZE + y * G.BSIZE + 8 * G.BORDER,
+                    G.SIZE - 16 * G.BORDER,
+                    G.SIZE - 16 * G.BORDER,
                 );
                 self.set_color(c);
             },
@@ -530,6 +547,10 @@ const Keyboard = struct {
 
         if (self.single(C.SDL_SCANCODE_3)) {
             G.current_style = Style.iter[2];
+        }
+
+        if (self.single(C.SDL_SCANCODE_4)) {
+            G.current_style = Style.iter[3];
         }
 
         if (self.single(C.SDL_SCANCODE_R)) {

@@ -196,6 +196,7 @@ pub const Style = enum {
     const Self = @This();
     Solid,
     Gridless,
+    Boxes,
     Edges,
 
     pub const iter = iterable_enum(Self);
