@@ -1,8 +1,4 @@
-const C = @cImport({
-    @cInclude("SDL2/SDL.h");
-    @cInclude("SDL2/SDL_ttf.h");
-});
-
+const C = @import("c.zig");
 const std = @import("std");
 const definitions = @import("definitions.zig");
 const game = @import("game.zig");
