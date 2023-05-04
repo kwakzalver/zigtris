@@ -808,6 +808,10 @@ pub fn sdl2_game() anyerror!void {
                 render_time = last_frame_drawn.read() / std.time.ns_per_ms;
             }
         }
+
+        if (!G.zigtris_bot) {
+            C.SDL_Delay(@divFloor(TARGET_FPS_DELAY, std.time.ns_per_ms * 4));
+        }
     }
 
     // free up stuff
