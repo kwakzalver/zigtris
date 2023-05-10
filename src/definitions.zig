@@ -44,21 +44,30 @@ pub const Color = struct {
 pub const Colorname = enum(u3) {
     const Self = @This();
     habamax,
+    habamin,
     gruvbox_dark,
     gruvbox_light,
     onedark,
-    macchiato,
+    onelight,
+    pastel_dark,
+    pastel_light,
 
     pub const iter = iterable_enum(Self);
 
     pub fn iter_index(s: Self) usize {
         return @enumToInt(s);
     }
+
+    pub fn next(s: Self) Colorname {
+        return Colorname.iter[(@enumToInt(s) + 1) % Colorname.iter.len];
+    }
+
+    pub fn previous(s: Self) Colorname {
+        return Colorname.iter[(@enumToInt(s) - 1) % Colorname.iter.len];
+    }
 };
 
-pub const Colorscheme = struct {
-    const Self = @This();
-    index: usize,
+const Palette = struct {
     fg_prim: Color,
     fg_seco: Color,
     bg_seco: Color,
@@ -71,44 +80,8 @@ pub const Colorscheme = struct {
     piece_Z: Color,
     piece_T: Color,
 
-    pub fn next(s: *Self) Colorscheme {
-        s.index = (s.index + Colorname.iter.len + 1) % Colorname.iter.len;
-        const name = Colorname.iter[s.index];
-        return Colorscheme.from_name(name);
-    }
-
-    pub fn previous(s: *Self) Colorscheme {
-        s.index = (s.index + Colorname.iter.len - 1) % Colorname.iter.len;
-        const name = Colorname.iter[s.index];
-        return Colorscheme.from_name(name);
-    }
-
-    pub fn from_name(n: Colorname) Colorscheme {
-        return switch (n) {
-            .habamax => Colorscheme.habamax(),
-            .gruvbox_dark => Colorscheme.gruvbox_dark(),
-            .gruvbox_light => Colorscheme.gruvbox_light(),
-            .onedark => Colorscheme.onedark(),
-            .macchiato => Colorscheme.macchiato(),
-        };
-    }
-
-    pub fn from_piecetype(s: *Self, p: PieceType) Color {
-        return switch (p) {
-            PieceType.None => s.bg_prim,
-            PieceType.I => s.piece_I,
-            PieceType.O => s.piece_O,
-            PieceType.J => s.piece_J,
-            PieceType.L => s.piece_L,
-            PieceType.S => s.piece_S,
-            PieceType.Z => s.piece_Z,
-            PieceType.T => s.piece_T,
-        };
-    }
-
-    pub fn habamax() Colorscheme {
-        return Colorscheme{
-            .index = Colorname.habamax.iter_index(),
+    fn habamax() Palette {
+        return Palette{
             .fg_prim = Color.from_u24(0xBCBCBC), // #BCBCBC
             .fg_seco = Color.from_u24(0x898989), // #898989
             .bg_seco = Color.from_u24(0x454545), // #454545
@@ -123,9 +96,24 @@ pub const Colorscheme = struct {
         };
     }
 
-    pub fn gruvbox_dark() Colorscheme {
-        return Colorscheme{
-            .index = Colorname.gruvbox_dark.iter_index(),
+    fn habamin() Palette {
+        return Palette{
+            .fg_prim = Color.from_u24(0x1C1C1C), // #1C1C1C
+            .fg_seco = Color.from_u24(0x454545), // #454545
+            .bg_seco = Color.from_u24(0x898989), // #898989
+            .bg_prim = Color.from_u24(0xBCBCBC), // #BCBCBC
+            .piece_I = Color.from_u24(0xD75F5F), // #D75F5F
+            .piece_J = Color.from_u24(0xBC796C), // #BC796C
+            .piece_L = Color.from_u24(0xA19379), // #A19379
+            .piece_O = Color.from_u24(0x87AF87), // #87AF87
+            .piece_S = Color.from_u24(0x79A194), // #79A194
+            .piece_T = Color.from_u24(0x6B93A1), // #6B93A1
+            .piece_Z = Color.from_u24(0x5F87AF), // #5F87AF
+        };
+    }
+
+    fn gruvbox_dark() Palette {
+        return Palette{
             .fg_prim = Color.from_u24(0xEBDBB2), // #EBDBB2
             .fg_seco = Color.from_u24(0xB6AC90), // #B6AC90
             .bg_seco = Color.from_u24(0x5B5648), // #5B5648
@@ -140,13 +128,12 @@ pub const Colorscheme = struct {
         };
     }
 
-    pub fn gruvbox_light() Colorscheme {
-        return Colorscheme{
-            .index = Colorname.gruvbox_light.iter_index(),
+    fn gruvbox_light() Palette {
+        return Palette{
             .fg_prim = Color.from_u24(0x282828), // #282828
             .fg_seco = Color.from_u24(0x5B5648), // #5B5648
-            .bg_prim = Color.from_u24(0xEBDBB2), // #EBDBB2
             .bg_seco = Color.from_u24(0xB6AC90), // #B6AC90
+            .bg_prim = Color.from_u24(0xEBDBB2), // #EBDBB2
             .piece_I = Color.from_u24(0xCC241D), // #CC241D
             .piece_J = Color.from_u24(0xD65D0E), // #D65D0E
             .piece_L = Color.from_u24(0xD79921), // #D79921
@@ -157,9 +144,8 @@ pub const Colorscheme = struct {
         };
     }
 
-    pub fn onedark() Colorscheme {
-        return Colorscheme{
-            .index = Colorname.onedark.iter_index(),
+    fn onedark() Palette {
+        return Palette{
             .fg_prim = Color.from_u24(0xABB2BF), // #ABB2BF
             .fg_seco = Color.from_u24(0x8C94A2), // #8C94A2
             .bg_seco = Color.from_u24(0x464A51), // #464A51
@@ -174,20 +160,100 @@ pub const Colorscheme = struct {
         };
     }
 
-    pub fn macchiato() Colorscheme {
+    fn onelight() Palette {
+        return Palette{
+            .fg_prim = Color.from_u24(0x101012), // #101012
+            .fg_seco = Color.from_u24(0x383a42), // #383A42
+            .bg_seco = Color.from_u24(0xc9c9c9), // #C9C9C9
+            .bg_prim = Color.from_u24(0xfafafa), // #FAFAFA
+            .piece_I = Color.from_u24(0xE06C75), // #E06C75
+            .piece_J = Color.from_u24(0xE29678), // #E29678
+            .piece_L = Color.from_u24(0xE5C07B), // #E5C07B
+            .piece_O = Color.from_u24(0x98C379), // #98C379
+            .piece_S = Color.from_u24(0x56B6C2), // #56B6C2
+            .piece_T = Color.from_u24(0x61AFEF), // #61AFEF
+            .piece_Z = Color.from_u24(0xC678DD), // #C678DD
+        };
+    }
+
+    fn pastel_dark() Palette {
+        return Palette{
+            .fg_prim = Color.from_u24(0xFFFFFC), // #FFFFFC
+            .fg_seco = Color.from_u24(0xDDDDDA), // #DDDDDA
+            .bg_seco = Color.from_u24(0x555566), // #555566
+            .bg_prim = Color.from_u24(0x444444), // #444444
+            .piece_I = Color.from_u24(0xFFADAD), // #FFADAD
+            .piece_J = Color.from_u24(0xFFD6A5), // #FFD6A5
+            .piece_L = Color.from_u24(0xFDFFB6), // #FDFFB6
+            .piece_O = Color.from_u24(0xCAFFBF), // #CAFFBF
+            .piece_S = Color.from_u24(0x9BF6FF), // #9BF6FF
+            .piece_T = Color.from_u24(0xA0C4FF), // #A0C4FF
+            .piece_Z = Color.from_u24(0xBDB2FF), // #BDB2FF
+        };
+    }
+
+    fn pastel_light() Palette {
+        return Palette{
+            .fg_prim = Color.from_u24(0x333344), // #333344
+            .fg_seco = Color.from_u24(0x444455), // #444455
+            .bg_seco = Color.from_u24(0xDDDDDA), // #DDDDDA
+            .bg_prim = Color.from_u24(0xFFFFFC), // #FFFFFC
+            .piece_I = Color.from_u24(0xFF9DAD), // #FF9DAD
+            .piece_J = Color.from_u24(0xFFC6A5), // #FFC6A5
+            .piece_L = Color.from_u24(0xEDEEA6), // #EDEEA6
+            .piece_O = Color.from_u24(0xBAEEAF), // #BAEEAF
+            .piece_S = Color.from_u24(0x9BE6FF), // #9BE6FF
+            .piece_T = Color.from_u24(0xA0B4FF), // #A0B4FF
+            .piece_Z = Color.from_u24(0xBDA2FF), // #BDA2FF
+        };
+    }
+};
+
+pub const Colorscheme = struct {
+    const Self = @This();
+    name: Colorname,
+    palette: Palette,
+
+    pub fn default() Colorscheme {
         return Colorscheme{
-            .index = Colorname.macchiato.iter_index(),
-            .fg_prim = Color.from_u24(0xCAD3F5), // #CAD3F5
-            .fg_seco = Color.from_u24(0xB8C0E0), // #B8C0E0
-            .bg_seco = Color.from_u24(0x494D64), // #494D64
-            .bg_prim = Color.from_u24(0x24273A), // #24273A
-            .piece_I = Color.from_u24(0xED8796), // #ED8796
-            .piece_J = Color.from_u24(0xF5A97F), // #F5A97F
-            .piece_L = Color.from_u24(0xEED49F), // #EED49F
-            .piece_O = Color.from_u24(0xA6DA95), // #A6DA95
-            .piece_S = Color.from_u24(0x8BD5CA), // #8BD5CA
-            .piece_T = Color.from_u24(0x8AADF4), // #8AADF4
-            .piece_Z = Color.from_u24(0xF5BDE6), // #F5BDE6
+            .name = Colorname.habamax,
+            .palette = Palette.habamax(),
+        };
+    }
+
+    pub fn set_colors(s: *Self) void {
+        s.palette = switch (s.name) {
+            .habamax => Palette.habamax(),
+            .habamin => Palette.habamin(),
+            .gruvbox_dark => Palette.gruvbox_dark(),
+            .gruvbox_light => Palette.gruvbox_light(),
+            .onedark => Palette.onedark(),
+            .onelight => Palette.onelight(),
+            .pastel_dark => Palette.pastel_dark(),
+            .pastel_light => Palette.pastel_light(),
+        };
+    }
+
+    pub fn next(s: *Self) void {
+        s.name = s.name.next();
+        s.set_colors();
+    }
+
+    pub fn previous(s: *Self) void {
+        s.name = s.name.previous();
+        s.set_colors();
+    }
+
+    pub fn from_piecetype(s: *Self, p: PieceType) Color {
+        return switch (p) {
+            PieceType.None => s.palette.bg_prim,
+            PieceType.I => s.palette.piece_I,
+            PieceType.O => s.palette.piece_O,
+            PieceType.J => s.palette.piece_J,
+            PieceType.L => s.palette.piece_L,
+            PieceType.S => s.palette.piece_S,
+            PieceType.Z => s.palette.piece_Z,
+            PieceType.T => s.palette.piece_T,
         };
     }
 };

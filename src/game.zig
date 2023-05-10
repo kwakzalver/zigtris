@@ -10,6 +10,7 @@ const PieceType = definitions.PieceType;
 const Rotation = definitions.Rotation;
 
 const Color = definitions.Color;
+const Colorname = definitions.Colorname;
 const Colorscheme = definitions.Colorscheme;
 const Style = definitions.Style;
 
@@ -17,7 +18,7 @@ const MinMaxRC = definitions.MinMaxRC;
 const Delta = definitions.Delta;
 const Metrics = definitions.Metrics;
 
-const ENABLE_BOT_DELAY = true;
+const ENABLE_BOT_DELAY = false;
 const BOT_DELAY = 50 * std.time.ns_per_ms;
 
 // beautiful idiomatic global state variables
@@ -60,7 +61,7 @@ pub const G = struct {
     pub var pieces_locked: u64 = 0;
     pub var sprint_time: u64 = undefined;
     pub var sprint_finished: bool = false;
-    pub var current_colorscheme = Colorscheme.habamax();
+    pub var current_colorscheme = Colorscheme.default();
     pub var current_style = Style.Solid;
     pub var zigtris_bot = false;
 

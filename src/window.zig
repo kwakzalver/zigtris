@@ -8,6 +8,7 @@ const PieceType = definitions.PieceType;
 const Rotation = definitions.Rotation;
 
 const Color = definitions.Color;
+const Colorname = definitions.Colorname;
 const Colorscheme = definitions.Colorscheme;
 const Style = definitions.Style;
 
@@ -92,7 +93,7 @@ const Renderer = struct {
                     G.SIZE,
                     G.SIZE,
                 );
-                self.set_color(G.current_colorscheme.bg_prim);
+                self.set_color(G.current_colorscheme.palette.bg_prim);
                 self.fill_rectangle(
                     G.BSIZE + x * G.BSIZE + (G.SIZE >> 2),
                     G.BSIZE + y * G.BSIZE + (G.SIZE >> 2),
@@ -109,7 +110,7 @@ const Renderer = struct {
                     G.SIZE,
                     G.SIZE,
                 );
-                self.set_color(G.current_colorscheme.bg_prim);
+                self.set_color(G.current_colorscheme.palette.bg_prim);
                 self.fill_rectangle(
                     G.BSIZE + x * G.BSIZE + 8 * G.BORDER,
                     G.BSIZE + y * G.BSIZE + 8 * G.BORDER,
@@ -127,13 +128,13 @@ const Renderer = struct {
 
     fn draw_lines_cleared(self: *Self, current_lines: u64) anyerror!void {
         const S = struct {
-            var colorscheme: usize = undefined;
+            var colorname: Colorname = undefined;
             var lines: u64 = 1 << 63;
             var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
         const lines_equal = current_lines == S.lines;
-        const colors_equal = S.colorscheme == G.current_colorscheme.index;
+        const colors_equal = S.colorname == G.current_colorscheme.name;
         if (lines_equal and colors_equal) {
             // re-use renderered
             if (self.force_redraw == 0) {
@@ -158,7 +159,7 @@ const Renderer = struct {
             .{current_lines},
         ) catch unreachable;
         const c_string = buf;
-        const c = G.current_colorscheme.fg_prim;
+        const c = G.current_colorscheme.palette.fg_prim;
         const color = C.SDL_Color{
             .r = c.red,
             .g = c.green,
@@ -193,7 +194,7 @@ const Renderer = struct {
 
         // keep previous rendered stuff
         C.SDL_DestroyTexture(S.text);
-        S.colorscheme = G.current_colorscheme.index;
+        S.colorname = G.current_colorscheme.name;
         S.lines = current_lines;
         S.text = text;
         S.rect = r;
@@ -205,13 +206,13 @@ const Renderer = struct {
         highlight: bool,
     ) anyerror!void {
         const S = struct {
-            var colorscheme: usize = undefined;
+            var colorname: Colorname = undefined;
             var time: u64 = 1 << 63;
             var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
         const time_equal = current_time == S.time;
-        const colors_equal = S.colorscheme == G.current_colorscheme.index;
+        const colors_equal = S.colorname == G.current_colorscheme.name;
         if (time_equal and colors_equal) {
             // re-use renderered
             if (self.force_redraw == 0) {
@@ -237,8 +238,8 @@ const Renderer = struct {
         ) catch unreachable;
         const c_string = buf;
         const c = switch (highlight) {
-            false => G.current_colorscheme.fg_prim,
-            true => G.current_colorscheme.piece_T,
+            false => G.current_colorscheme.palette.fg_prim,
+            true => G.current_colorscheme.palette.piece_T,
         };
         const color = C.SDL_Color{
             .r = c.red,
@@ -274,7 +275,7 @@ const Renderer = struct {
 
         // keep previous rendered stuff
         C.SDL_DestroyTexture(S.text);
-        S.colorscheme = G.current_colorscheme.index;
+        S.colorname = G.current_colorscheme.name;
         S.time = current_time;
         S.text = text;
         S.rect = r;
@@ -285,13 +286,13 @@ const Renderer = struct {
         current_time: u64,
     ) anyerror!void {
         const S = struct {
-            var colorscheme: usize = undefined;
+            var colorname: Colorname = undefined;
             var time: u64 = 1 << 63;
             var text: ?*C.SDL_Texture = null;
             var rect: C.SDL_Rect = undefined;
         };
         const time_equal = current_time == S.time;
-        const colors_equal = S.colorscheme == G.current_colorscheme.index;
+        const colors_equal = S.colorname == G.current_colorscheme.name;
         if (time_equal and colors_equal) {
             // re-use renderered
             if (self.force_redraw == 0) {
@@ -316,7 +317,7 @@ const Renderer = struct {
             .{current_time},
         ) catch unreachable;
         const c_string = buf;
-        const c = G.current_colorscheme.piece_O;
+        const c = G.current_colorscheme.palette.piece_O;
         const color = C.SDL_Color{
             .r = c.red,
             .g = c.green,
@@ -351,7 +352,7 @@ const Renderer = struct {
 
         // keep previous rendered stuff
         C.SDL_DestroyTexture(S.text);
-        S.colorscheme = G.current_colorscheme.index;
+        S.colorname = G.current_colorscheme.name;
         S.time = current_time;
         S.text = text;
         S.rect = r;
@@ -361,7 +362,7 @@ const Renderer = struct {
         // basically the outline
         switch (G.current_style) {
             Style.Solid => {
-                self.set_color(G.current_colorscheme.fg_prim);
+                self.set_color(G.current_colorscheme.palette.fg_prim);
                 self.fill_rectangle(
                     G.SIZE,
                     G.SIZE,
@@ -401,7 +402,7 @@ const Renderer = struct {
         );
         const piece_color = Color.combine(
             G.current_colorscheme.from_piecetype(p),
-            G.current_colorscheme.bg_seco,
+            G.current_colorscheme.palette.bg_seco,
             ratio,
         );
         self.set_color(piece_color);
@@ -531,11 +532,11 @@ const Keyboard = struct {
         }
 
         if (self.single(C.SDL_SCANCODE_TAB)) {
-            G.current_colorscheme = G.current_colorscheme.next();
+            G.current_colorscheme.next();
         }
 
         if (self.single(C.SDL_SCANCODE_BACKSPACE)) {
-            G.current_colorscheme = G.current_colorscheme.previous();
+            G.current_colorscheme.previous();
         }
 
         if (self.single(C.SDL_SCANCODE_1)) {
@@ -723,7 +724,7 @@ pub fn sdl2_game() anyerror!void {
         if (last_frame_drawn.read() >= TARGET_FPS_DELAY) {
             last_frame_drawn.reset();
             // keep abstracting every bit of rendering
-            r.set_color(G.current_colorscheme.bg_prim);
+            r.set_color(G.current_colorscheme.palette.bg_prim);
             r.clear();
 
             r.draw_grid();
@@ -739,7 +740,7 @@ pub fn sdl2_game() anyerror!void {
             const ratio: u8 = 32;
             const piece_color = Color.combine(
                 G.current_colorscheme.from_piecetype(G.current_piece.type),
-                G.current_colorscheme.fg_prim,
+                G.current_colorscheme.palette.fg_prim,
                 ratio,
             );
             r.set_color(piece_color);
