@@ -582,8 +582,9 @@ const Keyboard = struct {
             _ = game.rotate_right();
         }
 
-        if (self.repeats(C.SDL_SCANCODE_DOWN, 0)) {
-            _ = game.move_down();
+        if (self.single(C.SDL_SCANCODE_DOWN)) {
+            _ = game.soft_drop();
+            G.gravity_timer.reset();
         }
 
         if (self.repeats(C.SDL_SCANCODE_LEFT, repeat_delay)) {
@@ -599,8 +600,7 @@ const Keyboard = struct {
         }
 
         const S = struct {
-            const interest = [3]C.SDL_Scancode{
-                C.SDL_SCANCODE_DOWN,
+            const interest = [_]C.SDL_Scancode{
                 C.SDL_SCANCODE_LEFT,
                 C.SDL_SCANCODE_RIGHT,
             };
@@ -697,7 +697,7 @@ pub fn sdl2_game() anyerror!void {
     };
 
     G.game_timer = try std.time.Timer.start();
-    var gravity_timer = try std.time.Timer.start();
+    G.gravity_timer = try std.time.Timer.start();
     G.xoshiro = std.rand.DefaultPrng.init(@intCast(
         u64,
         std.time.milliTimestamp(),
@@ -714,10 +714,10 @@ pub fn sdl2_game() anyerror!void {
         quit = k.handle_input(&r);
 
         if (comptime ENABLE_GRAVITY) {
-            const gravity_tick = gravity_timer.read() >= GRAVITY_DELAY;
+            const gravity_tick = G.gravity_timer.read() >= GRAVITY_DELAY;
             if (gravity_tick) {
                 game.gravity_tick();
-                gravity_timer.reset();
+                G.gravity_timer.reset();
             }
         }
 

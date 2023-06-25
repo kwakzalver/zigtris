@@ -35,6 +35,7 @@ pub const G = struct {
     } ** ROWS;
 
     pub var game_timer: std.time.Timer = undefined;
+    pub var gravity_timer: std.time.Timer = undefined;
 
     // dummy placeholders
     pub var current_piece = Piece{
@@ -280,11 +281,11 @@ pub fn ghost_drop() i8 {
 }
 
 pub fn hard_drop() void {
-    while (move_down()) {}
+    soft_drop();
     piece_lock();
 }
 
-fn hard_drop_no_lock() void {
+pub fn soft_drop() void {
     while (move_down()) {}
 }
 
@@ -449,7 +450,7 @@ fn compute_score(placed: Piece) i32 {
 }
 
 fn try_move(badness: i32) void {
-    hard_drop_no_lock();
+    soft_drop();
     G.moves.append(G.current_piece) catch unreachable;
     push();
     const b = compute_score(G.current_piece);
