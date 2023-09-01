@@ -93,11 +93,11 @@ fn collision() bool {
         G.current_piece.type,
         G.current_piece.rotation,
     );
-    for (data) |drow, dr| {
-        for (drow) |e, dc| {
+    for (data, 0..) |drow, dr| {
+        for (drow, 0..) |e, dc| {
             if (e != B) {
-                const c = @intCast(usize, col + @intCast(i8, dc));
-                const r = @intCast(usize, row + @intCast(i8, dr));
+                const c = @as(usize, @intCast(col + @as(i8, @intCast(dc))));
+                const r = @as(usize, @intCast(row + @as(i8, @intCast(dr))));
                 if (G.Grid[r][c] != B) {
                     return true;
                 }
@@ -128,11 +128,11 @@ fn materialize() void {
     );
     const col = G.current_piece.col;
     const row = G.current_piece.row;
-    for (data) |drow, dr| {
-        for (drow) |e, dc| {
+    for (data, 0..) |drow, dr| {
+        for (drow, 0..) |e, dc| {
             if (e != PieceType.None) {
-                const c = @intCast(usize, col + @intCast(i8, dc));
-                const r = @intCast(usize, row + @intCast(i8, dr));
+                const c = @as(usize, @intCast(col + @as(i8, @intCast(dc))));
+                const r = @as(usize, @intCast(row + @as(i8, @intCast(dr))));
                 G.Grid[r][c] = e;
             }
         }
@@ -147,11 +147,11 @@ fn push() void {
     );
     const col = G.current_piece.col;
     const row = G.current_piece.row;
-    for (data) |drow, dr| {
-        for (drow) |e, dc| {
+    for (data, 0..) |drow, dr| {
+        for (drow, 0..) |e, dc| {
             if (e != PieceType.None) {
-                const c = @intCast(usize, col + @intCast(i8, dc));
-                const r = @intCast(usize, row + @intCast(i8, dr));
+                const c = @as(usize, @intCast(col + @as(i8, @intCast(dc))));
+                const r = @as(usize, @intCast(row + @as(i8, @intCast(dr))));
                 G.Grid[r][c] = e;
             }
         }
@@ -176,11 +176,11 @@ fn pop() void {
     const B = PieceType.None;
     const col = piece.col;
     const row = piece.row;
-    for (data) |drow, dr| {
-        for (drow) |e, dc| {
+    for (data, 0..) |drow, dr| {
+        for (drow, 0..) |e, dc| {
             if (e != PieceType.None) {
-                const c = @intCast(usize, col + @intCast(i8, dc));
-                const r = @intCast(usize, row + @intCast(i8, dr));
+                const c = @as(usize, @intCast(col + @as(i8, @intCast(dc))));
+                const r = @as(usize, @intCast(row + @as(i8, @intCast(dr))));
                 G.Grid[r][c] = B;
             }
         }
@@ -207,8 +207,8 @@ fn next_piece() void {
 }
 
 fn clear_grid() void {
-    for (G.Grid) |Row, r| {
-        for (Row) |_, c| {
+    for (G.Grid, 0..) |Row, r| {
+        for (Row, 0..) |_, c| {
             G.Grid[r][c] = PieceType.None;
         }
     }
@@ -409,7 +409,7 @@ fn compute_metrics(row_start: u8) Metrics {
         var r: u8 = row_start;
         while (r != ROWS and G.Grid[r][c] == B) : (r += 1) {
             background += 1;
-            deepest = std.math.max(deepest, r);
+            deepest = @max(deepest, r);
         }
         while (r != ROWS) : (r += 1) {
             if (G.Grid[r][c] == B) {
@@ -428,8 +428,8 @@ fn compute_metrics(row_start: u8) Metrics {
 fn compute_score(placed: Piece) i32 {
     const row_start = find_row_start();
     const metrics = compute_metrics(row_start);
-    const grid_height = @intCast(i8, ROWS - row_start);
-    const piece_placement = @intCast(i8, ROWS) - placed.row;
+    const grid_height = @as(i8, @intCast(ROWS - row_start));
+    const piece_placement = @as(i8, @intCast(ROWS)) - placed.row;
     const piece_orientation: i8 = switch (placed.rotation) {
         .Right, .Left => 1,
         else => 0,
@@ -642,9 +642,9 @@ test "clear lines" {
 // for example, you just got an I, and you get all other pieces twice first
 // [I] : [J L O S T Z] : [J L O S T Z] : [I]
 test "piecetypes are satisfyingly random" {
-    G.xoshiro = std.rand.DefaultPrng.init(@intCast(
+    G.xoshiro = std.rand.DefaultPrng.init(@as(
         u64,
-        std.time.milliTimestamp(),
+        @intCast(std.time.milliTimestamp()),
     ));
     G.rngesus = G.xoshiro.random();
     var seen: [PieceType.iter.len]u8 = .{0} ** PieceType.iter.len;

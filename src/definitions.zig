@@ -18,25 +18,25 @@ pub const Color = struct {
 
     pub fn from_u24(rgb: u24) Color {
         return Color{
-            .red = @intCast(u8, (rgb >> 16) & 0xff),
-            .green = @intCast(u8, (rgb >> 8) & 0xff),
-            .blue = @intCast(u8, (rgb >> 0) & 0xff),
+            .red = @as(u8, @intCast((rgb >> 16) & 0xff)),
+            .green = @as(u8, @intCast((rgb >> 8) & 0xff)),
+            .blue = @as(u8, @intCast((rgb >> 0) & 0xff)),
         };
     }
 
     pub fn combine(lhs: Color, rhs: Color, l: u8) Color {
         const r: u8 = (128 - l);
-        const lr = @intCast(u16, lhs.red);
-        const lg = @intCast(u16, lhs.green);
-        const lb = @intCast(u16, lhs.blue);
-        const rr = @intCast(u16, rhs.red);
-        const rg = @intCast(u16, rhs.green);
-        const rb = @intCast(u16, rhs.blue);
+        const lr = @as(u16, @intCast(lhs.red));
+        const lg = @as(u16, @intCast(lhs.green));
+        const lb = @as(u16, @intCast(lhs.blue));
+        const rr = @as(u16, @intCast(rhs.red));
+        const rg = @as(u16, @intCast(rhs.green));
+        const rb = @as(u16, @intCast(rhs.blue));
 
         return Color{
-            .red = @intCast(u8, @divFloor(lr * l + rr * r, 128)),
-            .green = @intCast(u8, @divFloor(lg * l + rg * r, 128)),
-            .blue = @intCast(u8, @divFloor(lb * l + rb * r, 128)),
+            .red = @as(u8, @intCast(@divFloor(lr * l + rr * r, 128))),
+            .green = @as(u8, @intCast(@divFloor(lg * l + rg * r, 128))),
+            .blue = @as(u8, @intCast(@divFloor(lb * l + rb * r, 128))),
         };
     }
 };
@@ -55,15 +55,15 @@ pub const Colorname = enum(u3) {
     pub const iter = iterable_enum(Self);
 
     pub fn iter_index(s: Self) usize {
-        return @enumToInt(s);
+        return @intFromEnum(s);
     }
 
     pub fn next(s: Self) Colorname {
-        return Colorname.iter[(@enumToInt(s) + 1) % Colorname.iter.len];
+        return Colorname.iter[(@intFromEnum(s) + 1) % Colorname.iter.len];
     }
 
     pub fn previous(s: Self) Colorname {
-        return Colorname.iter[(@enumToInt(s) - 1) % Colorname.iter.len];
+        return Colorname.iter[(@intFromEnum(s) - 1) % Colorname.iter.len];
     }
 };
 
@@ -311,7 +311,7 @@ pub const Rotation = enum(u2) {
     pub const iter = iterable_enum(Self);
 
     pub fn iter_index(s: Self) usize {
-        return @enumToInt(s);
+        return @intFromEnum(s);
     }
 };
 
@@ -339,10 +339,7 @@ pub const PieceType = enum(u3) {
 
     // IMPORTANT make sure to not use this `iter_index` when PieceType.None
     pub fn iter_index(s: Self) usize {
-        return if (comptime s != PieceType.None)
-            @enumToInt(s)
-        else
-            unreachable;
+        return @intFromEnum(s);
     }
 
     pub fn piecetype_rotation_matrix(
@@ -560,8 +557,8 @@ pub const MinMaxRC = struct {
         @setEvalBranchQuota(2000);
         var lookup_table: [PieceType.iter.len][Rotation.iter.len]MinMaxRC =
             undefined;
-        for (PieceType.iter) |ptype, ti| {
-            for (Rotation.iter) |prot, ri| {
+        for (PieceType.iter, 0..) |ptype, ti| {
+            for (Rotation.iter, 0..) |prot, ri| {
                 const d = PieceType.piecetype_rotation_matrix(ptype, prot);
                 const B = PieceType.None;
 
@@ -618,10 +615,10 @@ pub const MinMaxRC = struct {
                 )) : (min_col += 1) {}
 
                 lookup_table[ti][ri] = MinMaxRC{
-                    .min_row = @intCast(i8, min_row),
-                    .min_col = @intCast(i8, min_col),
-                    .max_row = @intCast(i8, max_row),
-                    .max_col = @intCast(i8, max_col),
+                    .min_row = @as(i8, @intCast(min_row)),
+                    .min_col = @as(i8, @intCast(min_col)),
+                    .max_row = @as(i8, @intCast(max_row)),
+                    .max_col = @as(i8, @intCast(max_col)),
                 };
             }
         }
@@ -659,8 +656,8 @@ pub const Piece = struct {
 // cute little trick to generate `.iter` for enums
 fn iterable_enum(comptime T: type) [@typeInfo(T).Enum.fields.len]T {
     var result: [@typeInfo(T).Enum.fields.len]T = undefined;
-    inline for (@typeInfo(T).Enum.fields) |e, i| {
-        result[i] = @intToEnum(T, e.value);
+    inline for (@typeInfo(T).Enum.fields, 0..) |e, i| {
+        result[i] = @as(T, @enumFromInt(e.value));
     }
     return result;
 }

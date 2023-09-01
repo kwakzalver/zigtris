@@ -1,26 +1,25 @@
 const std = @import("std");
 
 pub fn build(b: *std.build.Builder) void {
-    // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
     const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
 
-    // Standard release options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
-    const mode = b.standardReleaseOptions();
-
-    const exe = b.addExecutable("zigtris", "src/main.zig");
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
+    const exe = b.addExecutable(.{
+        .name = "zigtris",
+        .root_source_file = .{
+            .path = "src/main.zig",
+        },
+        .target = target,
+        .optimize = optimize,
+    });
     exe.linkSystemLibrary("SDL2");
     exe.linkSystemLibrary("SDL2_ttf");
     // exe.linkSystemLibrary("SDL2_mixer");
     exe.linkSystemLibrary("c");
-    exe.install();
 
-    const run_cmd = exe.run();
+    b.installArtifact(exe);
+
+    const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
         run_cmd.addArgs(args);
@@ -29,25 +28,45 @@ pub fn build(b: *std.build.Builder) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const main_tests = b.addTest("src/main.zig");
-    main_tests.setTarget(target);
-    main_tests.setBuildMode(mode);
+    const main_tests = b.addTest(.{
+        .name = "Main",
+        .root_source_file = .{
+            .path = "src/main.zig",
+        },
+        .target = target,
+        .optimize = optimize,
+    });
 
-    const window_tests = b.addTest("src/window.zig");
-    window_tests.setTarget(target);
-    window_tests.setBuildMode(mode);
+    const window_tests = b.addTest(.{
+        .name = "Window",
+        .root_source_file = .{
+            .path = "src/window.zig",
+        },
+        .target = target,
+        .optimize = optimize,
+    });
 
-    const game_tests = b.addTest("src/game.zig");
-    game_tests.setTarget(target);
-    game_tests.setBuildMode(mode);
+    const game_tests = b.addTest(.{
+        .name = "Game",
+        .root_source_file = .{
+            .path = "src/game.zig",
+        },
+        .target = target,
+        .optimize = optimize,
+    });
 
-    const definitions_tests = b.addTest("src/definitions.zig");
-    definitions_tests.setTarget(target);
-    definitions_tests.setBuildMode(mode);
+    const definitions_tests = b.addTest(.{
+        .name = "Definitions",
+        .root_source_file = .{
+            .path = "src/definitions.zig",
+        },
+        .target = target,
+        .optimize = optimize,
+    });
 
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&main_tests.step);
-    test_step.dependOn(&window_tests.step);
-    test_step.dependOn(&game_tests.step);
-    test_step.dependOn(&definitions_tests.step);
+    const test_step = b.step("test", "Run tests");
+    test_step.dependOn(&b.addRunArtifact(main_tests).step);
+    test_step.dependOn(&b.addRunArtifact(window_tests).step);
+    test_step.dependOn(&b.addRunArtifact(game_tests).step);
+    test_step.dependOn(&b.addRunArtifact(definitions_tests).step);
 }

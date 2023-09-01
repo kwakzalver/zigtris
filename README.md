@@ -3,9 +3,9 @@
 Any of the following commands will produce a more than decent binary.
 
 ```console
-zig build -Drelease-safe
-zig build -Drelease-small
-zig build -Drelease-fast
+zig build -Doptimize=ReleaseSafe
+zig build -Doptimize=ReleaseFast
+zig build -Doptimize=ReleaseSmall
 ```
 
 Enjoy!
@@ -71,16 +71,14 @@ variant. Simply replace `./assets/font.ttf`, then recompile to change it.
 ## Colors
 
 In-game you can cycle through the colorschemes by pressing **Tab** or
-**Backspace**. The default colors are **habamax**, **gruvbox dark**, **gruvbox
-light**, **onedark**, and catppuccin **macchiato**. These are all popular
-colorschemes used by programmers.
+**Backspace**. The default colors are **habamax**, **gruvbox**, **onedark**,
+and some pastels. Most of these are popular colorschemes used by programmers.
 
 ## Style
 
 The drawing style for pieces is very simple. I hope to keep it as simple as
 possible, while still having some variety. That said, there is a **Style**
 enumeration which could be expanded on.
-
 
 # Contributions
 
