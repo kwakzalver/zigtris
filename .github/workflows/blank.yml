@@ -22,7 +22,7 @@ jobs:
       - name: Run tests and compile
         run: |
           zig build test
-          zig build -Drelease-safe
+          zig build -Doptimize=ReleaseSafe
       - name: Publish binary
         uses: actions/upload-artifact@v3.1.0
         with:
