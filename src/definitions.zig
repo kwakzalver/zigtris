@@ -657,7 +657,7 @@ pub const Piece = struct {
 fn iterable_enum(comptime T: type) [@typeInfo(T).Enum.fields.len]T {
     var result: [@typeInfo(T).Enum.fields.len]T = undefined;
     inline for (@typeInfo(T).Enum.fields, 0..) |e, i| {
-        result[i] = @as(T, @enumFromInt(e.value));
+        result[i] = @enumFromInt(e.value);
     }
     return result;
 }

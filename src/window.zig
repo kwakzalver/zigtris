@@ -396,9 +396,10 @@ const Renderer = struct {
             f64,
             @floatFromInt(std.time.milliTimestamp()),
         ) / 1024;
+        const pi = @as(f64, std.math.pi);
         const ratio: u8 = @as(
             u8,
-            @intFromFloat(96 * @fabs(@sin(3.141592 * timestamp))),
+            @intFromFloat(96 * @fabs(@sin(pi * timestamp))),
         );
         const piece_color = Color.combine(
             G.current_colorscheme.from_piecetype(p),
