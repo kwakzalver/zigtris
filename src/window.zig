@@ -112,10 +112,10 @@ const Renderer = struct {
                 );
                 self.set_color(G.current_colorscheme.palette.bg_prim);
                 self.fill_rectangle(
-                    G.BSIZE + x * G.BSIZE + 8 * G.BORDER,
-                    G.BSIZE + y * G.BSIZE + 8 * G.BORDER,
-                    G.SIZE - 16 * G.BORDER,
-                    G.SIZE - 16 * G.BORDER,
+                    G.BSIZE + x * G.BSIZE + 1 * G.BORDER,
+                    G.BSIZE + y * G.BSIZE + 1 * G.BORDER,
+                    G.SIZE - 2 * G.BORDER,
+                    G.SIZE - 2 * G.BORDER,
                 );
                 self.set_color(c);
             },

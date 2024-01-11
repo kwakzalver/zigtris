@@ -180,8 +180,8 @@ const Palette = struct {
         return Palette{
             .fg_prim = Color.from_u24(0xFFFFFC), // #FFFFFC
             .fg_seco = Color.from_u24(0xDDDDDA), // #DDDDDA
-            .bg_seco = Color.from_u24(0x555566), // #555566
-            .bg_prim = Color.from_u24(0x444444), // #444444
+            .bg_seco = Color.from_u24(0x222233), // #222233
+            .bg_prim = Color.from_u24(0x111122), // #111122
             .piece_I = Color.from_u24(0xFFADAD), // #FFADAD
             .piece_J = Color.from_u24(0xFFD6A5), // #FFD6A5
             .piece_L = Color.from_u24(0xFDFFB6), // #FDFFB6
@@ -194,8 +194,8 @@ const Palette = struct {
 
     fn pastel_light() Palette {
         return Palette{
-            .fg_prim = Color.from_u24(0x333344), // #333344
-            .fg_seco = Color.from_u24(0x444455), // #444455
+            .fg_prim = Color.from_u24(0x111122), // #111122
+            .fg_seco = Color.from_u24(0x222233), // #222233
             .bg_seco = Color.from_u24(0xDDDDDA), // #DDDDDA
             .bg_prim = Color.from_u24(0xFFFFFC), // #FFFFFC
             .piece_I = Color.from_u24(0xFF9DAD), // #FF9DAD
