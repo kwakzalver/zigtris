@@ -370,7 +370,22 @@ const Renderer = struct {
                     game.ROWS * G.BSIZE + G.BORDER,
                 );
             },
-            else => {},
+            else => {
+                self.set_color(G.current_colorscheme.palette.fg_prim);
+                self.fill_rectangle(
+                    G.SIZE,
+                    G.SIZE,
+                    game.COLUMNS * G.BSIZE + G.BORDER,
+                    game.ROWS * G.BSIZE + G.BORDER,
+                );
+                self.set_color(G.current_colorscheme.palette.bg_prim);
+                self.fill_rectangle(
+                    G.SIZE + G.BORDER,
+                    G.SIZE + G.BORDER,
+                    game.COLUMNS * G.BSIZE - G.BORDER,
+                    game.ROWS * G.BSIZE - G.BORDER,
+                );
+            },
         }
 
         var r: u64 = 0;
