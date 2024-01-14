@@ -615,6 +615,7 @@ fn random_piecetype() PieceType {
 // rigorous testing :^)
 test "clear lines" {
     var c: u8 = 0;
+    clear_grid();
     while (c != COLUMNS) : (c += 1) {
         G.Grid[19][c] = PieceType.I;
         G.Grid[18][c] = PieceType.I;
