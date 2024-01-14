@@ -59,11 +59,11 @@ pub const Colorname = enum(u3) {
     }
 
     pub fn next(s: Self) Colorname {
-        return Colorname.iter[(@intFromEnum(s) + 1) % Colorname.iter.len];
+        return Colorname.iter[@intFromEnum(s) +% 1];
     }
 
     pub fn previous(s: Self) Colorname {
-        return Colorname.iter[(@intFromEnum(s) - 1) % Colorname.iter.len];
+        return Colorname.iter[@intFromEnum(s) -% 1];
     }
 };
 

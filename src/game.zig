@@ -30,7 +30,7 @@ pub const G = struct {
     pub var BORDER: usize = 1;
     pub var BSIZE: usize = 43;
 
-    pub var Grid = [1][COLUMNS]PieceType{
+    pub var Grid = [_][COLUMNS]PieceType{
         .{PieceType.None} ** COLUMNS,
     } ** ROWS;
 
