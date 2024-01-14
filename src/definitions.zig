@@ -643,11 +643,11 @@ pub const Piece = struct {
     col: i8,
     row: i8,
 
-    pub fn from_piecetype(t: PieceType) Piece {
+    pub fn from_piecetype(t: PieceType, c: i8) Piece {
         return Piece{
             .type = t,
             .rotation = Rotation.None,
-            .col = 3,
+            .col = c,
             .row = 0,
         };
     }

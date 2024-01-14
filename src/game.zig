@@ -23,6 +23,7 @@ const BOT_DELAY = 50 * std.time.ns_per_ms;
 
 // beautiful idiomatic global state variables
 pub const G = struct {
+    pub var column: i8 = @divFloor(COLUMNS, 2) - 2;
     pub var xoshiro: std.rand.Xoshiro256 = undefined;
     pub var rngesus: std.rand.Random = undefined;
 
@@ -30,41 +31,27 @@ pub const G = struct {
     pub var BORDER: usize = 1;
     pub var BSIZE: usize = 43;
 
-    pub var Grid = [_][COLUMNS]PieceType{
-        .{PieceType.None} ** COLUMNS,
-    } ** ROWS;
+    pub var Grid: [ROWS][COLUMNS]PieceType = undefined;
 
     pub var game_timer: std.time.Timer = undefined;
     pub var gravity_timer: std.time.Timer = undefined;
 
     // dummy placeholders
-    pub var current_piece = Piece{
-        .type = PieceType.None,
-        .rotation = Rotation.None,
-        .col = 3,
-        .row = 0,
-    };
-
-    pub var current_holding = PieceType.None;
-
-    pub var current_queue = [4]PieceType{
-        PieceType.None,
-        PieceType.None,
-        PieceType.None,
-        PieceType.None,
-    };
+    pub var current_piece: Piece = undefined;
+    pub var current_holding: PieceType = undefined;
+    pub var current_queue: [4]PieceType = undefined;
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     const allocator = arena.allocator();
     var stack = std.ArrayList(Piece).init(allocator);
 
-    pub var lines_cleared: u64 = 0;
-    pub var pieces_locked: u64 = 0;
+    pub var lines_cleared: u64 = undefined;
+    pub var pieces_locked: u64 = undefined;
     pub var sprint_time: u64 = undefined;
-    pub var sprint_finished: bool = false;
-    pub var current_colorscheme = Colorscheme.default();
-    pub var current_style = Style.Solid;
-    pub var zigtris_bot = false;
+    pub var sprint_finished: bool = undefined;
+    pub var current_colorscheme: Colorscheme = Colorscheme.default();
+    pub var current_style: Style = undefined;
+    pub var zigtris_bot: bool = false;
 
     var optimal_move: Piece = undefined;
     var optimal_score: i32 = undefined;
@@ -158,7 +145,7 @@ fn push() void {
     }
 
     // shift queue
-    G.current_piece = Piece.from_piecetype(G.current_queue[0]);
+    G.current_piece = Piece.from_piecetype(G.current_queue[0], G.column);
     G.current_queue[0] = G.current_queue[1];
     G.current_queue[1] = G.current_queue[2];
     G.current_queue[2] = G.current_queue[3];
@@ -195,7 +182,7 @@ fn pop() void {
 }
 
 fn next_piece() void {
-    G.current_piece = Piece.from_piecetype(G.current_queue[0]);
+    G.current_piece = Piece.from_piecetype(G.current_queue[0], G.column);
     G.current_queue[0] = G.current_queue[1];
     G.current_queue[1] = G.current_queue[2];
     G.current_queue[2] = G.current_queue[3];
@@ -247,7 +234,7 @@ fn move_up() bool {
 
 pub fn hold_piece() void {
     const t = G.current_piece.type;
-    G.current_piece = Piece.from_piecetype(G.current_holding);
+    G.current_piece = Piece.from_piecetype(G.current_holding, G.column);
     G.current_holding = t;
 }
 
@@ -257,7 +244,7 @@ pub fn reset_game() void {
     G.pieces_locked = 0;
     G.lines_cleared = 0;
 
-    G.current_piece = Piece.from_piecetype(random_piecetype());
+    G.current_piece = Piece.from_piecetype(random_piecetype(), G.column);
     G.current_holding = random_piecetype();
     G.current_queue[0] = random_piecetype();
     G.current_queue[1] = random_piecetype();

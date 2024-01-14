@@ -19,8 +19,8 @@ const TARGET_FPS_DELAY = @divFloor(std.time.ns_per_s, TARGET_FPS);
 const FONT_BYTES = @embedFile("assets/font.ttf");
 
 // aspect ratio for width : height
-const RATIO_WIDTH: usize = 18;
-const RATIO_HEIGHT: usize = 22;
+const RATIO_WIDTH: usize = game.COLUMNS + 8;
+const RATIO_HEIGHT: usize = game.ROWS + 2;
 
 // feature flags, enable or disable at will
 const ENABLE_RENDER_TIME = false;
