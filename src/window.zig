@@ -150,9 +150,9 @@ const Renderer = struct {
         }
 
         var local_buffer: [64]u8 = .{0} ** 64;
-        var buf = local_buffer[0..];
-        var col_offset = G.BSIZE * game.COLUMNS + 3 * G.SIZE;
-        var row_offset = G.BSIZE * (game.ROWS - 6);
+        const buf = local_buffer[0..];
+        const col_offset = G.BSIZE * game.COLUMNS + 3 * G.SIZE;
+        const row_offset = G.BSIZE * (game.ROWS - 6);
         _ = std.fmt.bufPrint(
             buf,
             "{any}",
@@ -166,7 +166,7 @@ const Renderer = struct {
             .b = c.blue,
             .a = 0xff,
         };
-        var surface = C.TTF_RenderText_Blended(
+        const surface = C.TTF_RenderText_Blended(
             self.font,
             c_string,
             color,
@@ -175,7 +175,7 @@ const Renderer = struct {
             return error.SDLRenderFailed;
         };
         defer C.SDL_FreeSurface(surface);
-        var text = C.SDL_CreateTextureFromSurface(
+        const text = C.SDL_CreateTextureFromSurface(
             self.renderer,
             surface,
         ) orelse {
@@ -228,9 +228,9 @@ const Renderer = struct {
         }
 
         var local_buffer: [64]u8 = .{0} ** 64;
-        var buf = local_buffer[0..];
-        var col_offset = G.BSIZE * game.COLUMNS + 3 * G.SIZE;
-        var row_offset = G.BSIZE * (game.ROWS - 4);
+        const buf = local_buffer[0..];
+        const col_offset = G.BSIZE * game.COLUMNS + 3 * G.SIZE;
+        const row_offset = G.BSIZE * (game.ROWS - 4);
         _ = std.fmt.bufPrint(
             buf,
             "{any}",
@@ -247,7 +247,7 @@ const Renderer = struct {
             .b = c.blue,
             .a = 0xff,
         };
-        var surface = C.TTF_RenderText_Blended(
+        const surface = C.TTF_RenderText_Blended(
             self.font,
             c_string,
             color,
@@ -256,7 +256,7 @@ const Renderer = struct {
             return error.SDLRenderFailed;
         };
         defer C.SDL_FreeSurface(surface);
-        var text = C.SDL_CreateTextureFromSurface(
+        const text = C.SDL_CreateTextureFromSurface(
             self.renderer,
             surface,
         ) orelse {
@@ -308,9 +308,9 @@ const Renderer = struct {
         }
 
         var local_buffer: [64]u8 = .{0} ** 64;
-        var buf = local_buffer[0..];
-        var col_offset = RATIO_WIDTH * G.BSIZE - (G.SIZE >> 1);
-        var row_offset = G.BSIZE - (G.SIZE >> 1);
+        const buf = local_buffer[0..];
+        const col_offset = RATIO_WIDTH * G.BSIZE - (G.SIZE >> 1);
+        const row_offset = G.BSIZE - (G.SIZE >> 1);
         _ = std.fmt.bufPrint(
             buf,
             "{any} ms",
@@ -324,7 +324,7 @@ const Renderer = struct {
             .b = c.blue,
             .a = 0xff,
         };
-        var surface = C.TTF_RenderText_Blended(
+        const surface = C.TTF_RenderText_Blended(
             self.font,
             c_string,
             color,
@@ -333,7 +333,7 @@ const Renderer = struct {
             return error.SDLRenderFailed;
         };
         defer C.SDL_FreeSurface(surface);
-        var text = C.SDL_CreateTextureFromSurface(
+        const text = C.SDL_CreateTextureFromSurface(
             self.renderer,
             surface,
         ) orelse {
@@ -414,7 +414,7 @@ const Renderer = struct {
         const pi = @as(f64, std.math.pi);
         const ratio: u8 = @as(
             u8,
-            @intFromFloat(96 * @fabs(@sin(pi * timestamp))),
+            @intFromFloat(96 * @abs(@sin(pi * timestamp))),
         );
         const piece_color = Color.combine(
             G.current_colorscheme.from_piecetype(p),
@@ -685,6 +685,13 @@ pub fn sdl2_game() anyerror!void {
         @as(i32, @intCast(WINDOW_WIDTH)),
         @as(i32, @intCast(WINDOW_HEIGHT)),
         C.SDL_WINDOW_VULKAN | C.SDL_WINDOW_RESIZABLE,
+    ) orelse C.SDL_CreateWindow(
+        "Zigtris",
+        C.SDL_WINDOWPOS_UNDEFINED,
+        C.SDL_WINDOWPOS_UNDEFINED,
+        @as(i32, @intCast(WINDOW_WIDTH)),
+        @as(i32, @intCast(WINDOW_HEIGHT)),
+        C.SDL_WINDOW_OPENGL | C.SDL_WINDOW_RESIZABLE,
     ) orelse {
         C.SDL_Log("Unable to create window: %s", C.SDL_GetError());
         return error.SDLInitializationFailed;
@@ -706,7 +713,7 @@ pub fn sdl2_game() anyerror!void {
     };
 
     const keyboard = C.SDL_GetKeyboardState(null);
-    var timer = try std.time.Timer.start();
+    const timer = try std.time.Timer.start();
     var k = Keyboard{
         .keyboard = keyboard,
         .timer = timer,

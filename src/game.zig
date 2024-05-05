@@ -194,8 +194,8 @@ fn next_piece() void {
 }
 
 fn clear_grid() void {
-    for (G.Grid, 0..) |Row, r| {
-        for (Row, 0..) |_, c| {
+    for (0..ROWS) |r| {
+        for (0..COLUMNS) |c| {
             G.Grid[r][c] = PieceType.None;
         }
     }
@@ -593,7 +593,7 @@ pub fn fully_automatic() void {
 
 fn random_piecetype() PieceType {
     const S = struct {
-        var index: usize = 0;
+        var index: usize = 7;
         var types = [7]PieceType{
             PieceType.I,
             PieceType.O,
@@ -604,11 +604,12 @@ fn random_piecetype() PieceType {
             PieceType.T,
         };
     };
-    if (S.index == 0) {
+    if (S.index == 7) {
         G.rngesus.shuffle(PieceType, S.types[0..]);
+        S.index = 0;
     }
     const t = S.types[S.index];
-    S.index = (S.index + 1) % S.types.len;
+    S.index += 1;
     return t;
 }
 
