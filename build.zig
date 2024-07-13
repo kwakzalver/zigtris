@@ -6,9 +6,7 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "zigtris",
-        .root_source_file = .{
-            .path = "src/main.zig",
-        },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -30,36 +28,28 @@ pub fn build(b: *std.Build) void {
 
     const main_tests = b.addTest(.{
         .name = "Main",
-        .root_source_file = .{
-            .path = "src/main.zig",
-        },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
 
     const window_tests = b.addTest(.{
         .name = "Window",
-        .root_source_file = .{
-            .path = "src/window.zig",
-        },
+        .root_source_file = b.path("src/window.zig"),
         .target = target,
         .optimize = optimize,
     });
 
     const game_tests = b.addTest(.{
         .name = "Game",
-        .root_source_file = .{
-            .path = "src/game.zig",
-        },
+        .root_source_file = b.path("src/game.zig"),
         .target = target,
         .optimize = optimize,
     });
 
     const definitions_tests = b.addTest(.{
         .name = "Definitions",
-        .root_source_file = .{
-            .path = "src/definitions.zig",
-        },
+        .root_source_file = b.path("src/definitions.zig"),
         .target = target,
         .optimize = optimize,
     });

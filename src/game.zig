@@ -55,7 +55,7 @@ pub const G = struct {
 
     var optimal_move: Piece = undefined;
     var optimal_score: i32 = undefined;
-    var moves = std.ArrayList(Piece).init(G.allocator);
+    var moves = std.ArrayList(Piece).init(allocator);
 };
 
 fn collision() bool {
