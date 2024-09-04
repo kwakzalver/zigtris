@@ -100,8 +100,8 @@ const Palette = struct {
         return Palette{
             .fg_prim = Color.from_u24(0x1C1C1C), // #1C1C1C
             .fg_seco = Color.from_u24(0x454545), // #454545
-            .bg_seco = Color.from_u24(0x898989), // #898989
-            .bg_prim = Color.from_u24(0xBCBCBC), // #BCBCBC
+            .bg_seco = Color.from_u24(0xABABAB), // #ABABAB
+            .bg_prim = Color.from_u24(0xCDCDCD), // #CDCDCD
             .piece_I = Color.from_u24(0xD75F5F), // #D75F5F
             .piece_J = Color.from_u24(0xBC796C), // #BC796C
             .piece_L = Color.from_u24(0xA19379), // #A19379
