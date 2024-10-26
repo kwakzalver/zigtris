@@ -2,8 +2,8 @@ const std = @import("std");
 const definitions = @import("definitions.zig");
 
 // the game (you just lost)
-pub const ROWS: u8 = 20;
-pub const COLUMNS: u8 = 10;
+pub const ROWS = 20;
+pub const COLUMNS = 10;
 
 const Piece = definitions.Piece;
 const PieceType = definitions.PieceType;
@@ -83,9 +83,9 @@ fn collision() bool {
     for (data, 0..) |drow, dr| {
         for (drow, 0..) |e, dc| {
             if (e != B) {
-                const c = @as(usize, @intCast(col + @as(i8, @intCast(dc))));
-                const r = @as(usize, @intCast(row + @as(i8, @intCast(dr))));
-                if (G.Grid[r][c] != B) {
+                const r: usize = @intCast(row);
+                const c: usize = @intCast(col);
+                if (G.Grid[r + dr][c + dc] != B) {
                     return true;
                 }
             }
@@ -118,9 +118,9 @@ fn materialize() void {
     for (data, 0..) |drow, dr| {
         for (drow, 0..) |e, dc| {
             if (e != PieceType.None) {
-                const c = @as(usize, @intCast(col + @as(i8, @intCast(dc))));
-                const r = @as(usize, @intCast(row + @as(i8, @intCast(dr))));
-                G.Grid[r][c] = e;
+                const r: usize = @intCast(row);
+                const c: usize = @intCast(col);
+                G.Grid[r + dr][c + dc] = e;
             }
         }
     }
@@ -137,9 +137,9 @@ fn push() void {
     for (data, 0..) |drow, dr| {
         for (drow, 0..) |e, dc| {
             if (e != PieceType.None) {
-                const c = @as(usize, @intCast(col + @as(i8, @intCast(dc))));
-                const r = @as(usize, @intCast(row + @as(i8, @intCast(dr))));
-                G.Grid[r][c] = e;
+                const r: usize = @intCast(row);
+                const c: usize = @intCast(col);
+                G.Grid[r + dr][c + dc] = e;
             }
         }
     }
@@ -166,9 +166,9 @@ fn pop() void {
     for (data, 0..) |drow, dr| {
         for (drow, 0..) |e, dc| {
             if (e != PieceType.None) {
-                const c = @as(usize, @intCast(col + @as(i8, @intCast(dc))));
-                const r = @as(usize, @intCast(row + @as(i8, @intCast(dr))));
-                G.Grid[r][c] = B;
+                const r: usize = @intCast(row);
+                const c: usize = @intCast(col);
+                G.Grid[r + dr][c + dc] = B;
             }
         }
     }
@@ -415,8 +415,8 @@ fn compute_metrics(row_start: u8) Metrics {
 fn compute_score(placed: Piece) i32 {
     const row_start = find_row_start();
     const metrics = compute_metrics(row_start);
-    const grid_height = @as(i8, @intCast(ROWS - row_start));
-    const piece_placement = @as(i8, @intCast(ROWS)) - placed.row;
+    const grid_height = ROWS - row_start;
+    const piece_placement = ROWS - placed.row;
     const piece_orientation: i8 = switch (placed.rotation) {
         .Right, .Left => 1,
         else => 0,
@@ -631,10 +631,8 @@ test "clear lines" {
 // for example, you just got an I, and you get all other pieces twice first
 // [I] : [J L O S T Z] : [J L O S T Z] : [I]
 test "piecetypes are satisfyingly random" {
-    G.xoshiro = std.rand.DefaultPrng.init(@as(
-        u64,
-        @intCast(std.time.milliTimestamp()),
-    ));
+    const millis: u64 = @intCast(std.time.milliTimestamp());
+    G.xoshiro = std.rand.DefaultPrng.init(millis);
     G.rngesus = G.xoshiro.random();
     var seen: [PieceType.iter.len]u8 = .{0} ** PieceType.iter.len;
 

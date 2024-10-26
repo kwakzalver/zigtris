@@ -17,27 +17,25 @@ pub const Color = struct {
     blue: u8,
 
     pub fn from_u24(rgb: u24) Color {
-        return Color{
-            .red = @as(u8, @intCast((rgb >> 16) & 0xff)),
-            .green = @as(u8, @intCast((rgb >> 8) & 0xff)),
-            .blue = @as(u8, @intCast((rgb >> 0) & 0xff)),
-        };
+        const r: u8 = @intCast((rgb >> 16) & 0xff);
+        const g: u8 = @intCast((rgb >> 8) & 0xff);
+        const b: u8 = @intCast((rgb >> 0) & 0xff);
+        return Color{ .red = r, .green = g, .blue = b };
     }
 
     pub fn combine(lhs: Color, rhs: Color, l: u8) Color {
         const r: u8 = (128 - l);
-        const lr = @as(u16, @intCast(lhs.red));
-        const lg = @as(u16, @intCast(lhs.green));
-        const lb = @as(u16, @intCast(lhs.blue));
-        const rr = @as(u16, @intCast(rhs.red));
-        const rg = @as(u16, @intCast(rhs.green));
-        const rb = @as(u16, @intCast(rhs.blue));
+        const lr: u16 = @intCast(lhs.red);
+        const lg: u16 = @intCast(lhs.green);
+        const lb: u16 = @intCast(lhs.blue);
+        const rr: u16 = @intCast(rhs.red);
+        const rg: u16 = @intCast(rhs.green);
+        const rb: u16 = @intCast(rhs.blue);
 
-        return Color{
-            .red = @as(u8, @intCast(@divFloor(lr * l + rr * r, 128))),
-            .green = @as(u8, @intCast(@divFloor(lg * l + rg * r, 128))),
-            .blue = @as(u8, @intCast(@divFloor(lb * l + rb * r, 128))),
-        };
+        const cr: u8 = @intCast(@divFloor(lr * l + rr * r, 128));
+        const cg: u8 = @intCast(@divFloor(lg * l + rg * r, 128));
+        const cb: u8 = @intCast(@divFloor(lb * l + rb * r, 128));
+        return Color{ .red = cr, .green = cg, .blue = cb };
     }
 };
 
@@ -615,10 +613,10 @@ pub const MinMaxRC = struct {
                 )) : (min_col += 1) {}
 
                 lookup_table[ti][ri] = MinMaxRC{
-                    .min_row = @as(i8, @intCast(min_row)),
-                    .min_col = @as(i8, @intCast(min_col)),
-                    .max_row = @as(i8, @intCast(max_row)),
-                    .max_col = @as(i8, @intCast(max_col)),
+                    .min_row = @intCast(min_row),
+                    .min_col = @intCast(min_col),
+                    .max_row = @intCast(max_row),
+                    .max_col = @intCast(max_col),
                 };
             }
         }

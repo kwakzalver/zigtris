@@ -19,8 +19,8 @@ const TARGET_FPS_DELAY = @divFloor(std.time.ns_per_s, TARGET_FPS);
 const FONT_BYTES = @embedFile("assets/font.ttf");
 
 // aspect ratio for width : height
-const RATIO_WIDTH: usize = game.COLUMNS + 8;
-const RATIO_HEIGHT: usize = game.ROWS + 2;
+const RATIO_WIDTH = game.COLUMNS + 8;
+const RATIO_HEIGHT = game.ROWS + 2;
 
 // feature flags, enable or disable at will
 const ENABLE_RENDER_TIME = false;
@@ -59,10 +59,10 @@ const Renderer = struct {
         height: usize,
     ) void {
         var rectangle = C.SDL_Rect{
-            .x = @as(i32, @intCast(x)),
-            .y = @as(i32, @intCast(y)),
-            .w = @as(i32, @intCast(width)),
-            .h = @as(i32, @intCast(height)),
+            .x = C.int(x),
+            .y = C.int(y),
+            .w = C.int(width),
+            .h = C.int(height),
         };
         _ = C.SDL_RenderFillRect(self.renderer, &rectangle);
     }
@@ -185,8 +185,8 @@ const Renderer = struct {
         const tw = surface.*.w;
         const th = surface.*.h;
         var r = C.SDL_Rect{
-            .x = @as(i32, @intCast(col_offset)),
-            .y = @as(i32, @intCast(row_offset)),
+            .x = C.int(col_offset),
+            .y = C.int(row_offset),
             .w = tw,
             .h = th,
         };
@@ -266,8 +266,8 @@ const Renderer = struct {
         const tw = surface.*.w;
         const th = surface.*.h;
         var r = C.SDL_Rect{
-            .x = @as(i32, @intCast(col_offset)),
-            .y = @as(i32, @intCast(row_offset)),
+            .x = C.int(col_offset),
+            .y = C.int(row_offset),
             .w = tw,
             .h = th,
         };
@@ -343,8 +343,8 @@ const Renderer = struct {
         const tw = surface.*.w;
         const th = surface.*.h;
         var r = C.SDL_Rect{
-            .x = @as(i32, @intCast(col_offset)) - tw,
-            .y = @as(i32, @intCast(row_offset)),
+            .x = C.int(col_offset) - tw,
+            .y = C.int(row_offset),
             .w = tw,
             .h = th,
         };
@@ -407,15 +407,10 @@ const Renderer = struct {
         p: PieceType,
         r: Rotation,
     ) void {
-        const timestamp: f64 = @as(
-            f64,
-            @floatFromInt(std.time.milliTimestamp()),
-        ) / 1024;
-        const pi = @as(f64, std.math.pi);
-        const ratio: u8 = @as(
-            u8,
-            @intFromFloat(96 * @abs(@sin(pi * timestamp))),
-        );
+        const millis: f64 = @floatFromInt(std.time.milliTimestamp());
+        const timestamp: f64 = millis / 1024;
+        const pi: f64 = std.math.pi;
+        const ratio: u8 = @intFromFloat(96 * @abs(@sin(pi * timestamp)));
         const piece_color = Color.combine(
             G.current_colorscheme.from_piecetype(p),
             G.current_colorscheme.palette.bg_seco,
@@ -436,8 +431,10 @@ const Renderer = struct {
         for (data, 0..) |drow, dr| {
             for (drow, 0..) |e, dc| {
                 if (e != PieceType.None) {
-                    const ci = @as(usize, @intCast(col + @as(i8, @intCast(dc))));
-                    const ri = @as(usize, @intCast(row + @as(i8, @intCast(dr))));
+                    const cc: i8 = @intCast(dc);
+                    const rr: i8 = @intCast(dr);
+                    const ci: usize = @intCast(col + cc);
+                    const ri: usize = @intCast(row + rr);
                     self.fill_square(ci, ri);
                 }
             }
@@ -511,21 +508,18 @@ const Keyboard = struct {
                         C.SDL_WINDOWEVENT_SIZE_CHANGED => {
                             // we resize based on the smaller dimension, but
                             // keep the width : height ratio into account
-                            const d1 = @as(usize, @intCast(event.window.data1));
-                            const d2 = @as(usize, @intCast(event.window.data2));
+                            const d1: usize = @intCast(event.window.data1);
+                            const d2: usize = @intCast(event.window.data2);
                             const width = @divFloor(
                                 d1 * RATIO_HEIGHT,
                                 RATIO_WIDTH,
                             );
                             const height = d2;
                             const dimension = @min(width, height);
-                            G.SIZE = @as(usize, @intCast(@divFloor(
-                                dimension - @as(
-                                    usize,
-                                    @intCast(G.BORDER),
-                                ) * RATIO_HEIGHT,
+                            G.SIZE = @divFloor(
+                                dimension - (G.BORDER * RATIO_HEIGHT),
                                 RATIO_HEIGHT,
-                            )));
+                            );
                             G.BORDER = @max(@divFloor(G.SIZE, 42), 1);
                             G.BSIZE = G.SIZE + G.BORDER;
                             const font = sdl2_ttf() catch unreachable;
@@ -652,7 +646,7 @@ fn sdl2_ttf() anyerror!*C.TTF_Font {
     const font: *C.TTF_Font = C.TTF_OpenFontRW(
         font_memory,
         0,
-        @as(i32, @intCast(G.SIZE)),
+        C.int(G.SIZE),
     ) orelse {
         C.SDL_Log("Unable to TTF_OpenFontRW: %s", C.TTF_GetError());
         return error.SDLInitializationFailed;
@@ -682,15 +676,15 @@ pub fn sdl2_game() anyerror!void {
         "Zigtris",
         C.SDL_WINDOWPOS_UNDEFINED,
         C.SDL_WINDOWPOS_UNDEFINED,
-        @as(i32, @intCast(WINDOW_WIDTH)),
-        @as(i32, @intCast(WINDOW_HEIGHT)),
+        C.int(WINDOW_WIDTH),
+        C.int(WINDOW_HEIGHT),
         C.SDL_WINDOW_VULKAN | C.SDL_WINDOW_RESIZABLE,
     ) orelse C.SDL_CreateWindow(
         "Zigtris",
         C.SDL_WINDOWPOS_UNDEFINED,
         C.SDL_WINDOWPOS_UNDEFINED,
-        @as(i32, @intCast(WINDOW_WIDTH)),
-        @as(i32, @intCast(WINDOW_HEIGHT)),
+        C.int(WINDOW_WIDTH),
+        C.int(WINDOW_HEIGHT),
         C.SDL_WINDOW_OPENGL | C.SDL_WINDOW_RESIZABLE,
     ) orelse {
         C.SDL_Log("Unable to create window: %s", C.SDL_GetError());
@@ -706,6 +700,7 @@ pub fn sdl2_game() anyerror!void {
 
     const font = sdl2_ttf() catch unreachable;
     defer C.TTF_Quit();
+    defer C.TTF_CloseFont(font);
 
     var r = Renderer{
         .renderer = renderer,
@@ -721,10 +716,8 @@ pub fn sdl2_game() anyerror!void {
 
     G.game_timer = try std.time.Timer.start();
     G.gravity_timer = try std.time.Timer.start();
-    G.xoshiro = std.rand.DefaultPrng.init(@as(
-        u64,
-        @intCast(std.time.milliTimestamp()),
-    ));
+    const millis: u64 = @intCast(std.time.milliTimestamp());
+    G.xoshiro = std.rand.DefaultPrng.init(millis);
     G.rngesus = G.xoshiro.random();
     game.reset_game();
 
@@ -776,7 +769,7 @@ pub fn sdl2_game() anyerror!void {
 
             const col_offset = game.COLUMNS + 2;
             for (G.current_queue, 0..) |p, dr| {
-                const row_offset = @as(i8, @intCast(1 + 3 * dr));
+                const row_offset: i8 = @intCast(1 + 3 * dr);
                 r.set_color(G.current_colorscheme.from_piecetype(p));
                 r.draw_tetromino(
                     col_offset,
@@ -789,9 +782,10 @@ pub fn sdl2_game() anyerror!void {
             r.set_color(
                 G.current_colorscheme.from_piecetype(G.current_holding),
             );
+            const row_offset: i8 = @intCast(1 + 4 * G.current_queue.len);
             r.draw_tetromino(
                 col_offset,
-                @as(i8, @intCast(1 + 4 * G.current_queue.len)),
+                row_offset,
                 G.current_holding,
                 Rotation.None,
             );
@@ -837,7 +831,4 @@ pub fn sdl2_game() anyerror!void {
             C.SDL_Delay(@divFloor(TARGET_FPS_DELAY, std.time.ns_per_ms * 4));
         }
     }
-
-    // free up stuff
-    C.TTF_CloseFont(r.font);
 }
