@@ -1,6 +1,7 @@
 const std = @import("std");
-const window = @import("window.zig");
+const zigtris = @import("game.zig");
 
-pub fn main() anyerror!void {
-    window.sdl2_game() catch unreachable;
+pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    try zigtris.sdl2_game(arena.allocator());
 }

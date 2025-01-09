@@ -36,7 +36,7 @@ same for the rest of that session.
 | Down | Move down |
 | Space | Hard drop |
 | {1,2,3,4} | Switch to {Solid,Gridless,Boxes,Edges} style respectively |
-| \` | Enable the bot |
+| {F1,F2,F3,F4} | Switch to {manual,slow bot,medium bot,fast bot} gameplay respectively |
 
 # Customization
 
@@ -65,7 +65,7 @@ Look for `SDL_SCANCODE_` to see all the keys and customize to your liking.
 
 ## Font
 
-The default is a [JetBrainsMono](https://github.com/JetBrains/JetBrainsMono)
+The default is a [Recursive Mono Casual](https://github.com/arrowtype/recursive)
 variant. Simply replace `./assets/font.ttf`, then recompile to change it.
 
 ## Colors

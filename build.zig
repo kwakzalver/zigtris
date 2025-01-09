@@ -26,37 +26,13 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const main_tests = b.addTest(.{
-        .name = "Main",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const window_tests = b.addTest(.{
-        .name = "Window",
-        .root_source_file = b.path("src/window.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const game_tests = b.addTest(.{
-        .name = "Game",
+    const tests = b.addTest(.{
+        .name = "Zigtris",
         .root_source_file = b.path("src/game.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    const definitions_tests = b.addTest(.{
-        .name = "Definitions",
-        .root_source_file = b.path("src/definitions.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
-
     const test_step = b.step("test", "Run tests");
-    test_step.dependOn(&b.addRunArtifact(main_tests).step);
-    test_step.dependOn(&b.addRunArtifact(window_tests).step);
-    test_step.dependOn(&b.addRunArtifact(game_tests).step);
-    test_step.dependOn(&b.addRunArtifact(definitions_tests).step);
+    test_step.dependOn(&b.addRunArtifact(tests).step);
 }
