@@ -12,7 +12,7 @@ Enjoy!
 
 # Quick showcase
 
-![Zigtris](./zigtris.png)
+https://github.com/user-attachments/assets/b5d45ca2-eac9-4aa7-baf4-051a76e57167
 
 The numbers displayed are lines cleared and time passed respectively.
 The game is basically a 40-line sprint in which you can ignore the finish line
