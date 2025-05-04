@@ -72,7 +72,7 @@ const PieceType = enum {
     var index: u8 = 7;
     var bag = iterable;
 
-    fn random(rng: std.rand.Random) PieceType {
+    fn random(rng: std.Random) PieceType {
         if (index == 7) {
             rng.shuffleWithIndex(PieceType, &bag, u8);
             index = 0;
@@ -604,7 +604,7 @@ const Game = struct {
     grid: [ROWS][COLUMNS]PieceType = .{.{.None} ** COLUMNS} ** ROWS,
 
     // dummy placeholders
-    current_piece: Piece = Piece.new(.J),
+    current_piece: Piece = .new(.J),
     current_holding: PieceType = .L,
     current_queue: [4]PieceType = .{ .O, .S, .T, .Z },
 
@@ -612,7 +612,7 @@ const Game = struct {
     pieces_locked: u64 = 0,
     sprint_time: u64 = 0,
     sprint_finished: bool = false,
-    current_colorscheme: Colorscheme = Colorscheme.default(),
+    current_colorscheme: Colorscheme = .default(),
     current_style: Style = .Gridless,
     zigtris_bot: Bot = .{ .state = .off },
 
@@ -625,16 +625,16 @@ const Game = struct {
     moves: std.ArrayList(Piece),
     stack: std.ArrayList(Piece),
 
-    xoshiro: std.rand.Xoshiro256,
+    xoshiro: std.Random.Xoshiro256,
 
     fn init(allocator: std.mem.Allocator) !Game {
         const millis: u64 = @intCast(std.time.milliTimestamp());
         return .{
-            .game_timer = try std.time.Timer.start(),
-            .gravity_timer = try std.time.Timer.start(),
-            .moves = std.ArrayList(Piece).init(allocator),
-            .stack = std.ArrayList(Piece).init(allocator),
-            .xoshiro = std.rand.Xoshiro256.init(millis),
+            .game_timer = try .start(),
+            .gravity_timer = try .start(),
+            .moves = .init(allocator),
+            .stack = .init(allocator),
+            .xoshiro = .init(millis),
         };
     }
 
@@ -699,7 +699,7 @@ const Game = struct {
         }
 
         // shift queue
-        s.current_piece = Piece.new(s.current_queue[0]);
+        s.current_piece = .new(s.current_queue[0]);
         s.current_queue[0] = s.current_queue[1];
         s.current_queue[1] = s.current_queue[2];
         s.current_queue[2] = s.current_queue[3];
@@ -707,7 +707,7 @@ const Game = struct {
 
     fn pop(s: *Game) void {
         if (s.stack.items.len == 0) unreachable;
-        const p = s.stack.pop();
+        const p = s.stack.pop().?;
         const o = Offsets.get(p.type, p.rotation);
         for (o.rows, o.cols) |dr, dc| {
             const ri: usize = @intCast(p.position.row + dr);
@@ -724,7 +724,7 @@ const Game = struct {
     }
 
     fn next_piece(s: *Game) void {
-        s.current_piece = Piece.new(s.current_queue[0]);
+        s.current_piece = .new(s.current_queue[0]);
         s.current_queue[0] = s.current_queue[1];
         s.current_queue[1] = s.current_queue[2];
         s.current_queue[2] = s.current_queue[3];
@@ -768,7 +768,7 @@ const Game = struct {
 
     fn hold_piece(s: *Game) void {
         const t = s.current_piece.type;
-        s.current_piece = Piece.new(s.current_holding);
+        s.current_piece = .new(s.current_holding);
         s.current_holding = t;
     }
 
@@ -776,7 +776,7 @@ const Game = struct {
         s.clear_grid();
 
         const r = s.xoshiro.random();
-        s.current_piece = Piece.new(PieceType.random(r));
+        s.current_piece = .new(PieceType.random(r));
         s.current_holding = PieceType.random(r);
         s.current_queue[0] = PieceType.random(r);
         s.current_queue[1] = PieceType.random(r);
@@ -1120,7 +1120,7 @@ const Game = struct {
 test "piecetypes are satisfyingly random" {
     const N = PieceType.iterable.len;
     var seen: [N]u8 = .{0} ** N;
-    var r = std.rand.Xoshiro256.init(0);
+    var r: std.Random.Xoshiro256 = .init(0);
     for (1..std.math.maxInt(u8)) |i| {
         for (0..N) |_| {
             const t = PieceType.random(r.random());
@@ -1132,7 +1132,7 @@ test "piecetypes are satisfyingly random" {
 }
 
 test "clear lines" {
-    var g: Game = try Game.init(std.testing.allocator);
+    var g: Game = try .init(std.testing.allocator);
     defer g.deinit();
     g.reset();
     const empty: [ROWS][COLUMNS]PieceType = .{.{.None} ** COLUMNS} ** ROWS;
@@ -1285,15 +1285,15 @@ const Renderer = struct {
         };
         const surface =
             C.TTF_RenderText_Blended(s.font, &buffer, color) orelse {
-            C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
-            return error.SDLRenderFailed;
-        };
+                C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+                return error.SDLRenderFailed;
+            };
         defer C.SDL_FreeSurface(surface);
         const text =
             C.SDL_CreateTextureFromSurface(s.renderer, surface) orelse {
-            C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
-            return error.SDLRenderFailed;
-        };
+                C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+                return error.SDLRenderFailed;
+            };
         const tw = surface.*.w;
         const th = surface.*.h;
         var r = C.SDL_Rect{
@@ -1359,15 +1359,15 @@ const Renderer = struct {
         };
         const surface =
             C.TTF_RenderText_Blended(s.font, &buffer, color) orelse {
-            C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
-            return error.SDLRenderFailed;
-        };
+                C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+                return error.SDLRenderFailed;
+            };
         defer C.SDL_FreeSurface(surface);
         const text =
             C.SDL_CreateTextureFromSurface(s.renderer, surface) orelse {
-            C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
-            return error.SDLRenderFailed;
-        };
+                C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+                return error.SDLRenderFailed;
+            };
         const tw = surface.*.w;
         const th = surface.*.h;
         var r = C.SDL_Rect{
@@ -1589,9 +1589,9 @@ fn sdl2_ttf(game: *Game) !*C.TTF_Font {
 
     const font_memory =
         C.SDL_RWFromConstMem(FONT_BYTES, FONT_BYTES.len) orelse {
-        C.SDL_Log("Unable to SDL_RWFromConstMem: %s", C.SDL_GetError());
-        return error.SDLInitializationFailed;
-    };
+            C.SDL_Log("Unable to SDL_RWFromConstMem: %s", C.SDL_GetError());
+            return error.SDLInitializationFailed;
+        };
 
     if (C.TTF_Init() != 0) {
         C.SDL_Log("Unable to initialize TTF: %s", C.TTF_GetError());
@@ -1600,9 +1600,9 @@ fn sdl2_ttf(game: *Game) !*C.TTF_Font {
 
     const font: *C.TTF_Font =
         C.TTF_OpenFontRW(font_memory, 0, C.int(game.SIZE)) orelse {
-        C.SDL_Log("Unable to TTF_OpenFontRW: %s", C.TTF_GetError());
-        return error.SDLInitializationFailed;
-    };
+            C.SDL_Log("Unable to TTF_OpenFontRW: %s", C.TTF_GetError());
+            return error.SDLInitializationFailed;
+        };
 
     C.TTF_CloseFont(S.last_font);
     S.last_font = font;
@@ -1611,7 +1611,7 @@ fn sdl2_ttf(game: *Game) !*C.TTF_Font {
 }
 
 pub fn sdl2_game(allocator: std.mem.Allocator) !void {
-    var game: Game = try Game.init(allocator);
+    var game: Game = try .init(allocator);
     defer game.deinit();
     game.reset();
 
@@ -1646,9 +1646,9 @@ pub fn sdl2_game(allocator: std.mem.Allocator) !void {
 
     const renderer =
         C.SDL_CreateRenderer(screen, -1, 0) orelse {
-        C.SDL_Log("Unable to create renderer: %s", C.SDL_GetError());
-        return error.SDLInitializationFailed;
-    };
+            C.SDL_Log("Unable to create renderer: %s", C.SDL_GetError());
+            return error.SDLInitializationFailed;
+        };
     defer C.SDL_DestroyRenderer(renderer);
 
     const font = sdl2_ttf(&game) catch unreachable;

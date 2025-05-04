@@ -4,5 +4,5 @@ pub usingnamespace @cImport({
 });
 
 pub inline fn int(a: anytype) c_int {
-    return @as(c_int, @intCast(a));
+    return @intCast(a);
 }
