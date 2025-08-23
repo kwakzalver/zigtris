@@ -10,9 +10,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.linkSystemLibrary("SDL2");
-    exe.linkSystemLibrary("SDL2_ttf");
-    // exe.linkSystemLibrary("SDL2_mixer");
+    exe.linkSystemLibrary("SDL3");
+    exe.linkSystemLibrary("SDL3_ttf");
     exe.linkSystemLibrary("c");
 
     b.installArtifact(exe);

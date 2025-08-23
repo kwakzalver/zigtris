@@ -1,64 +1,77 @@
-const std = @import("std");
+const Standard = @import("std");
+
+const Math = Standard.math;
+const Time = Standard.time;
+const Random = Standard.Random;
+const Xoshiro256 = Standard.Random.Xoshiro256;
+const Timer = Standard.time.Timer;
+const ArrayList = Standard.ArrayList;
+const Allocator = Standard.mem.Allocator;
+
+const Testing = Standard.testing;
+
 const C = @import("c.zig");
 
 // the game (you just lost)
 const ROWS = 20;
 const COLUMNS = 10;
 const TARGET_FPS: u64 = 60;
-const TARGET_FPS_DELAY: u64 = std.time.ns_per_s / TARGET_FPS;
-const SDL_FRAME_DELAY: u32 = TARGET_FPS_DELAY / std.time.ns_per_ms / 2;
+const TARGET_FPS_DELAY: u64 = Time.ns_per_s / TARGET_FPS;
+const SDL_FRAME_DELAY: u32 = TARGET_FPS_DELAY / Time.ns_per_ms / 2;
 const FONT_BYTES = @embedFile("assets/font.ttf");
+const MAX_LENGTH_U64 = 20;
 
 // aspect ratio for width : height
 const RATIO_WIDTH = COLUMNS + 8;
 const RATIO_HEIGHT = ROWS + 2;
 
 const ENABLE_GRAVITY = true;
-const GRAVITY_DELAY = std.time.ns_per_s;
+const GRAVITY_DELAY = Time.ns_per_s;
 
 const Style = enum {
-    Solid,
-    Gridless,
-    Boxes,
-    Edges,
+    solid,
+    gridless,
+    boxes,
+    edges,
 };
 
 const Rotation = enum {
-    None,
-    Right,
-    Spin,
-    Left,
+    none,
+    right,
+    spin,
+    left,
 
-    const iterable: [4]Rotation = .{ .None, .Right, .Spin, .Left };
+    const iterable: [4]Rotation = .{ .none, .right, .spin, .left };
 
     fn rotate_right(r: Rotation) Rotation {
         return switch (r) {
-            .None => .Right,
-            .Right => .Spin,
-            .Spin => .Left,
-            .Left => .None,
+            .none => .right,
+            .right => .spin,
+            .spin => .left,
+            .left => .none,
         };
     }
+
     fn rotate_left(r: Rotation) Rotation {
         return switch (r) {
-            .None => .Left,
-            .Left => .Spin,
-            .Spin => .Right,
-            .Right => .None,
+            .none => .left,
+            .left => .spin,
+            .spin => .right,
+            .right => .none,
         };
     }
 
     fn rotate_spin(r: Rotation) Rotation {
         return switch (r) {
-            .None => .Spin,
-            .Left => .Right,
-            .Spin => .None,
-            .Right => .Left,
+            .none => .spin,
+            .left => .right,
+            .spin => .none,
+            .right => .left,
         };
     }
 };
 
-const PieceType = enum {
+const Piecetype = enum {
     I,
     J,
     L,
@@ -66,15 +79,15 @@ const PieceType = enum {
     S,
     T,
     Z,
-    None,
+    none,
 
-    const iterable: [7]PieceType = .{ .I, .J, .L, .O, .S, .T, .Z };
+    const iterable: [7]Piecetype = .{ .I, .J, .L, .O, .S, .T, .Z };
     var index: u8 = 7;
     var bag = iterable;
 
-    fn random(rng: std.Random) PieceType {
+    fn random(rng: Random) Piecetype {
         if (index == 7) {
-            rng.shuffleWithIndex(PieceType, &bag, u8);
+            rng.shuffleWithIndex(Piecetype, &bag, u8);
             index = 0;
         }
         const t = bag[index];
@@ -82,36 +95,36 @@ const PieceType = enum {
         return t;
     }
 
-    fn as(t: PieceType, r: Rotation) [4][4]PieceType {
-        const B: PieceType = .None;
-        const I: PieceType = .I;
-        const O: PieceType = .O;
-        const J: PieceType = .J;
-        const L: PieceType = .L;
-        const S: PieceType = .S;
-        const Z: PieceType = .Z;
-        const T: PieceType = .T;
+    fn as(t: Piecetype, r: Rotation) [4][4]Piecetype {
+        const B: Piecetype = .none;
+        const I: Piecetype = .I;
+        const O: Piecetype = .O;
+        const J: Piecetype = .J;
+        const L: Piecetype = .L;
+        const S: Piecetype = .S;
+        const Z: Piecetype = .Z;
+        const T: Piecetype = .T;
         return switch (t) {
             I => switch (r) {
-                .None => [4][4]PieceType{
+                .none => .{
                     .{ B, B, B, B },
                     .{ I, I, I, I },
                     .{ B, B, B, B },
                     .{ B, B, B, B },
                 },
-                .Right => [4][4]PieceType{
+                .right => .{
                     .{ B, B, I, B },
                     .{ B, B, I, B },
                     .{ B, B, I, B },
                     .{ B, B, I, B },
                 },
-                .Spin => [4][4]PieceType{
+                .spin => .{
                     .{ B, B, B, B },
                     .{ B, B, B, B },
                     .{ I, I, I, I },
                     .{ B, B, B, B },
                 },
-                .Left => [4][4]PieceType{
+                .left => .{
                     .{ B, I, B, B },
                     .{ B, I, B, B },
                     .{ B, I, B, B },
@@ -119,25 +132,25 @@ const PieceType = enum {
                 },
             },
             O => switch (r) {
-                .None => [4][4]PieceType{
+                .none => .{
                     .{ O, O, B, B },
                     .{ O, O, B, B },
                     .{ B, B, B, B },
                     .{ B, B, B, B },
                 },
-                .Right => [4][4]PieceType{
+                .right => .{
                     .{ B, O, O, B },
                     .{ B, O, O, B },
                     .{ B, B, B, B },
                     .{ B, B, B, B },
                 },
-                .Spin => [4][4]PieceType{
+                .spin => .{
                     .{ B, B, B, B },
                     .{ B, O, O, B },
                     .{ B, O, O, B },
                     .{ B, B, B, B },
                 },
-                .Left => [4][4]PieceType{
+                .left => .{
                     .{ B, B, B, B },
                     .{ O, O, B, B },
                     .{ O, O, B, B },
@@ -145,25 +158,25 @@ const PieceType = enum {
                 },
             },
             J => switch (r) {
-                .None => [4][4]PieceType{
+                .none => .{
                     .{ J, B, B, B },
                     .{ J, J, J, B },
                     .{ B, B, B, B },
                     .{ B, B, B, B },
                 },
-                .Right => [4][4]PieceType{
+                .right => .{
                     .{ B, J, J, B },
                     .{ B, J, B, B },
                     .{ B, J, B, B },
                     .{ B, B, B, B },
                 },
-                .Spin => [4][4]PieceType{
+                .spin => .{
                     .{ B, B, B, B },
                     .{ J, J, J, B },
                     .{ B, B, J, B },
                     .{ B, B, B, B },
                 },
-                .Left => [4][4]PieceType{
+                .left => .{
                     .{ B, J, B, B },
                     .{ B, J, B, B },
                     .{ J, J, B, B },
@@ -171,25 +184,25 @@ const PieceType = enum {
                 },
             },
             L => switch (r) {
-                .None => [4][4]PieceType{
+                .none => .{
                     .{ B, B, L, B },
                     .{ L, L, L, B },
                     .{ B, B, B, B },
                     .{ B, B, B, B },
                 },
-                .Right => [4][4]PieceType{
+                .right => .{
                     .{ B, L, B, B },
                     .{ B, L, B, B },
                     .{ B, L, L, B },
                     .{ B, B, B, B },
                 },
-                .Spin => [4][4]PieceType{
+                .spin => .{
                     .{ B, B, B, B },
                     .{ L, L, L, B },
                     .{ L, B, B, B },
                     .{ B, B, B, B },
                 },
-                .Left => [4][4]PieceType{
+                .left => .{
                     .{ L, L, B, B },
                     .{ B, L, B, B },
                     .{ B, L, B, B },
@@ -197,25 +210,25 @@ const PieceType = enum {
                 },
             },
             S => switch (r) {
-                .None => [4][4]PieceType{
+                .none => .{
                     .{ B, S, S, B },
                     .{ S, S, B, B },
                     .{ B, B, B, B },
                     .{ B, B, B, B },
                 },
-                .Right => [4][4]PieceType{
+                .right => .{
                     .{ B, S, B, B },
                     .{ B, S, S, B },
                     .{ B, B, S, B },
                     .{ B, B, B, B },
                 },
-                .Spin => [4][4]PieceType{
+                .spin => .{
                     .{ B, B, B, B },
                     .{ B, S, S, B },
                     .{ S, S, B, B },
                     .{ B, B, B, B },
                 },
-                .Left => [4][4]PieceType{
+                .left => .{
                     .{ S, B, B, B },
                     .{ S, S, B, B },
                     .{ B, S, B, B },
@@ -223,25 +236,25 @@ const PieceType = enum {
                 },
             },
             Z => switch (r) {
-                .None => [4][4]PieceType{
+                .none => .{
                     .{ Z, Z, B, B },
                     .{ B, Z, Z, B },
                     .{ B, B, B, B },
                     .{ B, B, B, B },
                 },
-                .Right => [4][4]PieceType{
+                .right => .{
                     .{ B, B, Z, B },
                     .{ B, Z, Z, B },
                     .{ B, Z, B, B },
                     .{ B, B, B, B },
                 },
-                .Spin => [4][4]PieceType{
+                .spin => .{
                     .{ B, B, B, B },
                     .{ Z, Z, B, B },
                     .{ B, Z, Z, B },
                     .{ B, B, B, B },
                 },
-                .Left => [4][4]PieceType{
+                .left => .{
                     .{ B, Z, B, B },
                     .{ Z, Z, B, B },
                     .{ Z, B, B, B },
@@ -249,32 +262,32 @@ const PieceType = enum {
                 },
             },
             T => switch (r) {
-                .None => [4][4]PieceType{
+                .none => .{
                     .{ B, T, B, B },
                     .{ T, T, T, B },
                     .{ B, B, B, B },
                     .{ B, B, B, B },
                 },
-                .Right => [4][4]PieceType{
+                .right => .{
                     .{ B, T, B, B },
                     .{ B, T, T, B },
                     .{ B, T, B, B },
                     .{ B, B, B, B },
                 },
-                .Spin => [4][4]PieceType{
+                .spin => .{
                     .{ B, B, B, B },
                     .{ T, T, T, B },
                     .{ B, T, B, B },
                     .{ B, B, B, B },
                 },
-                .Left => [4][4]PieceType{
+                .left => .{
                     .{ B, T, B, B },
                     .{ T, T, B, B },
                     .{ B, T, B, B },
                     .{ B, B, B, B },
                 },
             },
-            B => [4][4]PieceType{
+            B => .{
                 .{ B, B, B, B },
                 .{ B, B, B, B },
                 .{ B, B, B, B },
@@ -296,14 +309,14 @@ const Offsets = struct {
     rows: [4]i8,
     cols: [4]i8,
 
-    const PIECES = PieceType.iterable.len;
+    const PIECES = Piecetype.iterable.len;
     const ROTATIONS = Rotation.iterable.len;
 
     fn create_lut() [PIECES][ROTATIONS]Offsets {
         @setEvalBranchQuota(2000);
         var lut: [PIECES][ROTATIONS]Offsets = undefined;
-        for (PieceType.iterable, 0..) |piecetype, ti| {
-            if (piecetype == .None) continue;
+        for (Piecetype.iterable, 0..) |piecetype, ti| {
+            if (piecetype == .none) continue;
             for (Rotation.iterable, 0..) |rotation, ri| {
                 const data = piecetype.as(rotation);
                 var rows: [4]i8 = undefined;
@@ -312,7 +325,7 @@ const Offsets = struct {
 
                 for (data, 0..) |row, r| {
                     for (row, 0..) |e, c| {
-                        if (e != .None) {
+                        if (e != .none) {
                             rows[i] = @intCast(r);
                             cols[i] = @intCast(c);
                             i += 1;
@@ -320,33 +333,33 @@ const Offsets = struct {
                     }
                 }
 
-                lut[ti][ri] = Offsets{ .rows = rows, .cols = cols };
+                lut[ti][ri] = .{ .rows = rows, .cols = cols };
             }
         }
         return lut;
     }
 
-    fn get(t: PieceType, r: Rotation) Offsets {
-        const S = struct {
+    fn get(t: Piecetype, r: Rotation) Offsets {
+        const Static = struct {
             const lookup_table = Offsets.create_lut();
         };
 
         const pi: u32 = @intFromEnum(t);
         const ri: u32 = @intFromEnum(r);
-        return S.lookup_table[pi][ri];
+        return Static.lookup_table[pi][ri];
     }
 };
 
 const Piece = struct {
-    type: PieceType,
-    position: Position,
+    type: Piecetype,
     rotation: Rotation,
+    position: Position,
 
-    fn new(t: PieceType) Piece {
+    fn new(t: Piecetype) Piece {
         return .{
             .type = t,
             .position = .{ .row = 0, .col = COLUMNS / 2 - 2 },
-            .rotation = .None,
+            .rotation = .none,
         };
     }
 };
@@ -400,129 +413,129 @@ const Palette = struct {
 
     fn habamax() Palette {
         return .{
-            .F = Color.from_u24(0xBCBCBC), // #BCBCBC
-            .G = Color.from_u24(0x898989), // #898989
-            .N = Color.from_u24(0x454545), // #454545
-            .B = Color.from_u24(0x1C1C1C), // #1C1C1C
-            .I = Color.from_u24(0xD75F5F), // #D75F5F
-            .J = Color.from_u24(0xBC796C), // #BC796C
-            .L = Color.from_u24(0xA19379), // #A19379
-            .O = Color.from_u24(0x87AF87), // #87AF87
-            .S = Color.from_u24(0x79A194), // #79A194
-            .T = Color.from_u24(0x6B93A1), // #6B93A1
-            .Z = Color.from_u24(0x5F87AF), // #5F87AF
+            .F = Color.from_u24(0xBCBCBC),
+            .G = Color.from_u24(0x898989),
+            .N = Color.from_u24(0x454545),
+            .B = Color.from_u24(0x1C1C1C),
+            .I = Color.from_u24(0xD75F5F),
+            .J = Color.from_u24(0xBC796C),
+            .L = Color.from_u24(0xA19379),
+            .O = Color.from_u24(0x87AF87),
+            .S = Color.from_u24(0x79A194),
+            .T = Color.from_u24(0x6B93A1),
+            .Z = Color.from_u24(0x5F87AF),
         };
     }
 
     fn habamin() Palette {
         return .{
-            .F = Color.from_u24(0x1C1C1C), // #1C1C1C
-            .G = Color.from_u24(0x454545), // #454545
-            .N = Color.from_u24(0xABABAB), // #ABABAB
-            .B = Color.from_u24(0xCDCDCD), // #CDCDCD
-            .I = Color.from_u24(0xD75F5F), // #D75F5F
-            .J = Color.from_u24(0xBC796C), // #BC796C
-            .L = Color.from_u24(0xA19379), // #A19379
-            .O = Color.from_u24(0x87AF87), // #87AF87
-            .S = Color.from_u24(0x79A194), // #79A194
-            .T = Color.from_u24(0x6B93A1), // #6B93A1
-            .Z = Color.from_u24(0x5F87AF), // #5F87AF
+            .F = Color.from_u24(0x1C1C1C),
+            .G = Color.from_u24(0x454545),
+            .N = Color.from_u24(0xABABAB),
+            .B = Color.from_u24(0xCDCDCD),
+            .I = Color.from_u24(0xD75F5F),
+            .J = Color.from_u24(0xBC796C),
+            .L = Color.from_u24(0xA19379),
+            .O = Color.from_u24(0x87AF87),
+            .S = Color.from_u24(0x79A194),
+            .T = Color.from_u24(0x6B93A1),
+            .Z = Color.from_u24(0x5F87AF),
         };
     }
 
     fn gruvbox_dark() Palette {
         return .{
-            .F = Color.from_u24(0xEBDBB2), // #EBDBB2
-            .G = Color.from_u24(0xB6AC90), // #B6AC90
-            .N = Color.from_u24(0x5B5648), // #5B5648
-            .B = Color.from_u24(0x282828), // #282828
-            .I = Color.from_u24(0xCC241D), // #CC241D
-            .J = Color.from_u24(0xD65D0E), // #D65D0E
-            .L = Color.from_u24(0xD79921), // #D79921
-            .O = Color.from_u24(0x98971A), // #98971A
-            .S = Color.from_u24(0x689D6A), // #689D6A
-            .T = Color.from_u24(0x458588), // #458588
-            .Z = Color.from_u24(0xB16286), // #B16286
+            .F = Color.from_u24(0xEBDBB2),
+            .G = Color.from_u24(0xB6AC90),
+            .N = Color.from_u24(0x5B5648),
+            .B = Color.from_u24(0x282828),
+            .I = Color.from_u24(0xCC241D),
+            .J = Color.from_u24(0xD65D0E),
+            .L = Color.from_u24(0xD79921),
+            .O = Color.from_u24(0x98971A),
+            .S = Color.from_u24(0x689D6A),
+            .T = Color.from_u24(0x458588),
+            .Z = Color.from_u24(0xB16286),
         };
     }
 
     fn gruvbox_light() Palette {
         return .{
-            .F = Color.from_u24(0x282828), // #282828
-            .G = Color.from_u24(0x5B5648), // #5B5648
-            .N = Color.from_u24(0xB6AC90), // #B6AC90
-            .B = Color.from_u24(0xEBDBB2), // #EBDBB2
-            .I = Color.from_u24(0xCC241D), // #CC241D
-            .J = Color.from_u24(0xD65D0E), // #D65D0E
-            .L = Color.from_u24(0xD79921), // #D79921
-            .O = Color.from_u24(0x98971A), // #98971A
-            .S = Color.from_u24(0x689D6A), // #689D6A
-            .T = Color.from_u24(0x458588), // #458588
-            .Z = Color.from_u24(0xB16286), // #B16286
+            .F = Color.from_u24(0x282828),
+            .G = Color.from_u24(0x5B5648),
+            .N = Color.from_u24(0xB6AC90),
+            .B = Color.from_u24(0xEBDBB2),
+            .I = Color.from_u24(0xCC241D),
+            .J = Color.from_u24(0xD65D0E),
+            .L = Color.from_u24(0xD79921),
+            .O = Color.from_u24(0x98971A),
+            .S = Color.from_u24(0x689D6A),
+            .T = Color.from_u24(0x458588),
+            .Z = Color.from_u24(0xB16286),
         };
     }
 
     fn onedark() Palette {
         return .{
-            .F = Color.from_u24(0xABB2BF), // #ABB2BF
-            .G = Color.from_u24(0x8C94A2), // #8C94A2
-            .N = Color.from_u24(0x464A51), // #464A51
-            .B = Color.from_u24(0x282C34), // #282C34
-            .I = Color.from_u24(0xE06C75), // #E06C75
-            .J = Color.from_u24(0xE29678), // #E29678
-            .L = Color.from_u24(0xE5C07B), // #E5C07B
-            .O = Color.from_u24(0x98C379), // #98C379
-            .S = Color.from_u24(0x56B6C2), // #56B6C2
-            .T = Color.from_u24(0x61AFEF), // #61AFEF
-            .Z = Color.from_u24(0xC678DD), // #C678DD
+            .F = Color.from_u24(0xABB2BF),
+            .G = Color.from_u24(0x8C94A2),
+            .N = Color.from_u24(0x464A51),
+            .B = Color.from_u24(0x282C34),
+            .I = Color.from_u24(0xE06C75),
+            .J = Color.from_u24(0xE29678),
+            .L = Color.from_u24(0xE5C07B),
+            .O = Color.from_u24(0x98C379),
+            .S = Color.from_u24(0x56B6C2),
+            .T = Color.from_u24(0x61AFEF),
+            .Z = Color.from_u24(0xC678DD),
         };
     }
 
     fn onelight() Palette {
         return .{
-            .F = Color.from_u24(0x101012), // #101012
-            .G = Color.from_u24(0x383a42), // #383A42
-            .N = Color.from_u24(0xc9c9c9), // #C9C9C9
-            .B = Color.from_u24(0xfafafa), // #FAFAFA
-            .I = Color.from_u24(0xE06C75), // #E06C75
-            .J = Color.from_u24(0xE29678), // #E29678
-            .L = Color.from_u24(0xE5C07B), // #E5C07B
-            .O = Color.from_u24(0x98C379), // #98C379
-            .S = Color.from_u24(0x56B6C2), // #56B6C2
-            .T = Color.from_u24(0x61AFEF), // #61AFEF
-            .Z = Color.from_u24(0xC678DD), // #C678DD
+            .F = Color.from_u24(0x101012),
+            .G = Color.from_u24(0x383a42),
+            .N = Color.from_u24(0xc9c9c9),
+            .B = Color.from_u24(0xfafafa),
+            .I = Color.from_u24(0xE06C75),
+            .J = Color.from_u24(0xE29678),
+            .L = Color.from_u24(0xE5C07B),
+            .O = Color.from_u24(0x98C379),
+            .S = Color.from_u24(0x56B6C2),
+            .T = Color.from_u24(0x61AFEF),
+            .Z = Color.from_u24(0xC678DD),
         };
     }
 
     fn pastel_dark() Palette {
         return .{
-            .F = Color.from_u24(0xFFFFFC), // #FFFFFC
-            .G = Color.from_u24(0xDDDDDA), // #DDDDDA
-            .N = Color.from_u24(0x222233), // #222233
-            .B = Color.from_u24(0x111122), // #111122
-            .I = Color.from_u24(0xFFADAD), // #FFADAD
-            .J = Color.from_u24(0xFFD6A5), // #FFD6A5
-            .L = Color.from_u24(0xFDFFB6), // #FDFFB6
-            .O = Color.from_u24(0xCAFFBF), // #CAFFBF
-            .S = Color.from_u24(0x9BF6FF), // #9BF6FF
-            .T = Color.from_u24(0xA0C4FF), // #A0C4FF
-            .Z = Color.from_u24(0xBDB2FF), // #BDB2FF
+            .F = Color.from_u24(0xFFFFFC),
+            .G = Color.from_u24(0xDDDDDA),
+            .N = Color.from_u24(0x222233),
+            .B = Color.from_u24(0x111122),
+            .I = Color.from_u24(0xFFADAD),
+            .J = Color.from_u24(0xFFD6A5),
+            .L = Color.from_u24(0xFDFFB6),
+            .O = Color.from_u24(0xCAFFBF),
+            .S = Color.from_u24(0x9BF6FF),
+            .T = Color.from_u24(0xA0C4FF),
+            .Z = Color.from_u24(0xBDB2FF),
         };
     }
 
     fn pastel_light() Palette {
         return .{
-            .F = Color.from_u24(0x111122), // #111122
-            .G = Color.from_u24(0x222233), // #222233
-            .N = Color.from_u24(0xDDDDDA), // #DDDDDA
-            .B = Color.from_u24(0xFFFFFC), // #FFFFFC
-            .I = Color.from_u24(0xFF9DAD), // #FF9DAD
-            .J = Color.from_u24(0xFFC6A5), // #FFC6A5
-            .L = Color.from_u24(0xEDEEA6), // #EDEEA6
-            .O = Color.from_u24(0xBAEEAF), // #BAEEAF
-            .S = Color.from_u24(0x9BE6FF), // #9BE6FF
-            .T = Color.from_u24(0xA0B4FF), // #A0B4FF
-            .Z = Color.from_u24(0xBDA2FF), // #BDA2FF
+            .F = Color.from_u24(0x111122),
+            .G = Color.from_u24(0x222233),
+            .N = Color.from_u24(0xDDDDDA),
+            .B = Color.from_u24(0xFFFFFC),
+            .I = Color.from_u24(0xFF9DAD),
+            .J = Color.from_u24(0xFFC6A5),
+            .L = Color.from_u24(0xEDEEA6),
+            .O = Color.from_u24(0xBAEEAF),
+            .S = Color.from_u24(0x9BE6FF),
+            .T = Color.from_u24(0xA0B4FF),
+            .Z = Color.from_u24(0xBDA2FF),
         };
     }
 };
@@ -553,7 +566,7 @@ const Colorscheme = struct {
     fn default() Colorscheme {
         return .{
             .name = .habamax,
-            .palette = Palette.habamax(),
+            .palette = .habamax(),
         };
     }
 
@@ -573,9 +586,9 @@ const Colorscheme = struct {
         s.set_colors();
     }
 
-    fn from_piecetype(s: *Colorscheme, t: PieceType) Color {
+    fn from_piecetype(s: *Colorscheme, t: Piecetype) Color {
         return switch (t) {
-            PieceType.None => s.palette.B,
+            Piecetype.none => s.palette.B,
             inline else => |e| @field(s.palette, @tagName(e)),
         };
     }
@@ -601,40 +614,39 @@ const Game = struct {
     BORDER: usize = 1,
     BSIZE: usize = 43,
 
-    grid: [ROWS][COLUMNS]PieceType = .{.{.None} ** COLUMNS} ** ROWS,
+    grid: [ROWS][COLUMNS]Piecetype = .{.{.none} ** COLUMNS} ** ROWS,
 
     // dummy placeholders
     current_piece: Piece = .new(.J),
-    current_holding: PieceType = .L,
-    current_queue: [4]PieceType = .{ .O, .S, .T, .Z },
+    current_holding: Piecetype = .L,
+    current_queue: [4]Piecetype = .{ .O, .S, .T, .Z },
 
     lines_cleared: u64 = 0,
     pieces_locked: u64 = 0,
     sprint_time: u64 = 0,
     sprint_finished: bool = false,
     current_colorscheme: Colorscheme = .default(),
-    current_style: Style = .Gridless,
+    current_style: Style = .gridless,
     zigtris_bot: Bot = .{ .state = .off },
 
     optimal_move: Piece = undefined,
     optimal_score: i32 = undefined,
 
-    game_timer: std.time.Timer,
-    gravity_timer: std.time.Timer,
+    game_timer: Timer,
+    gravity_timer: Timer,
 
-    moves: std.ArrayList(Piece),
-    stack: std.ArrayList(Piece),
+    moves: ArrayList(Piece),
+    stack: ArrayList(Piece),
 
-    xoshiro: std.Random.Xoshiro256,
+    xoshiro: Xoshiro256,
 
-    fn init(allocator: std.mem.Allocator) !Game {
-        const millis: u64 = @intCast(std.time.milliTimestamp());
+    fn init(allocator: Allocator) !Game {
         return .{
             .game_timer = try .start(),
             .gravity_timer = try .start(),
             .moves = .init(allocator),
             .stack = .init(allocator),
-            .xoshiro = .init(millis),
+            .xoshiro = .init(@intCast(Time.milliTimestamp())),
         };
     }
 
@@ -661,7 +673,7 @@ const Game = struct {
         for (rs, cs) |dr, dc| {
             const ri: usize = @intCast(p.position.row + dr);
             const ci: usize = @intCast(p.position.col + dc);
-            if (s.grid[ri][ci] != .None) return true;
+            if (s.grid[ri][ci] != .none) return true;
         }
 
         return false;
@@ -712,7 +724,7 @@ const Game = struct {
         for (o.rows, o.cols) |dr, dc| {
             const ri: usize = @intCast(p.position.row + dr);
             const ci: usize = @intCast(p.position.col + dc);
-            s.grid[ri][ci] = .None;
+            s.grid[ri][ci] = .none;
         }
 
         // unshift queue
@@ -728,7 +740,7 @@ const Game = struct {
         s.current_queue[0] = s.current_queue[1];
         s.current_queue[1] = s.current_queue[2];
         s.current_queue[2] = s.current_queue[3];
-        s.current_queue[3] = PieceType.random(s.xoshiro.random());
+        s.current_queue[3] = Piecetype.random(s.xoshiro.random());
         if (s.collision()) {
             // game over!
             s.reset();
@@ -738,7 +750,7 @@ const Game = struct {
     fn clear_grid(s: *Game) void {
         for (0..ROWS) |r| {
             for (0..COLUMNS) |c|
-                s.grid[r][c] = .None;
+                s.grid[r][c] = .none;
         }
     }
 
@@ -776,12 +788,12 @@ const Game = struct {
         s.clear_grid();
 
         const r = s.xoshiro.random();
-        s.current_piece = .new(PieceType.random(r));
-        s.current_holding = PieceType.random(r);
-        s.current_queue[0] = PieceType.random(r);
-        s.current_queue[1] = PieceType.random(r);
-        s.current_queue[2] = PieceType.random(r);
-        s.current_queue[3] = PieceType.random(r);
+        s.current_piece = .new(Piecetype.random(r));
+        s.current_holding = Piecetype.random(r);
+        s.current_queue[0] = Piecetype.random(r);
+        s.current_queue[1] = Piecetype.random(r);
+        s.current_queue[2] = Piecetype.random(r);
+        s.current_queue[3] = Piecetype.random(r);
 
         s.stack.shrinkRetainingCapacity(0);
 
@@ -817,7 +829,7 @@ const Game = struct {
     }
 
     fn unstuck(s: *Game) bool {
-        const S = struct {
+        const Static = struct {
             const deltas = [16]Delta{
                 // same level
                 .{ .row = 0, .col = 0 },
@@ -843,7 +855,7 @@ const Game = struct {
         };
 
         const p = s.current_piece.position;
-        for (S.deltas) |delta| {
+        for (Static.deltas) |delta| {
             s.current_piece.position.row += delta.row;
             s.current_piece.position.col += delta.col;
             if (!s.collision()) return true;
@@ -872,7 +884,7 @@ const Game = struct {
 
     fn clear_line(s: *Game, r: usize) bool {
         var clear: bool = true;
-        for (s.grid[r]) |c| clear = clear and c != .None;
+        for (s.grid[r]) |c| clear = clear and c != .none;
         return clear;
     }
 
@@ -881,7 +893,7 @@ const Game = struct {
         while (u != 0) {
             u -= 1;
             for (0..COLUMNS) |c| s.grid[u + 1][c] = s.grid[u][c];
-        } else for (0..COLUMNS) |c| s.grid[u][c] = .None;
+        } else for (0..COLUMNS) |c| s.grid[u][c] = .none;
     }
 
     fn clear_lines(s: *Game) u8 {
@@ -899,7 +911,7 @@ const Game = struct {
     fn find_row_start(s: *Game) u8 {
         for (0..ROWS) |r| {
             for (0..COLUMNS) |c| {
-                if (s.grid[r][c] != .None) return @intCast(r);
+                if (s.grid[r][c] != .none) return @intCast(r);
             }
         }
         return ROWS - 1;
@@ -912,12 +924,12 @@ const Game = struct {
 
         for (0..COLUMNS) |c| {
             var r: u8 = row_start;
-            while (r != ROWS and s.grid[r][c] == .None) : (r += 1) {
+            while (r != ROWS and s.grid[r][c] == .none) : (r += 1) {
                 background += 1;
                 deepest = @max(deepest, r);
             }
             while (r != ROWS) : (r += 1) {
-                if (s.grid[r][c] == .None) holes += 1;
+                if (s.grid[r][c] == .none) holes += 1;
             }
         }
 
@@ -934,7 +946,7 @@ const Game = struct {
         const grid_height = ROWS - row_start;
         const piece_placement = ROWS - placed.position.row;
         const piece_orientation: i8 = switch (placed.rotation) {
-            .Right, .Left => 1,
+            .right, .left => 1,
             else => 0,
         };
 
@@ -943,7 +955,7 @@ const Game = struct {
         badness = (badness + metrics.background) * 2;
         badness = (badness + metrics.deepest) * 2;
         badness = (badness + piece_placement) * 2;
-        badness = (badness + std.math.pow(i32, 2, grid_height)) * 2;
+        badness = (badness + Math.pow(i32, 2, grid_height)) * 2;
         badness = (badness + piece_orientation) * 2;
         return badness;
     }
@@ -986,9 +998,11 @@ const Game = struct {
 
         if (s.moves.items.len == 5) {
             if (badness < s.optimal_score) {
-                // the first move in this sequence of moves, is the optimal one
-                // a complete re-evaluation of the move-tree is not necessary,
-                // and results in an approximately 3 times slower bot
+                // the first move in this sequence of
+                // moves, is the optimal one a complete
+                // re-evaluation of the move-tree is not
+                // necessary, and results in an
+                // approximately 3 times slower bot
                 s.optimal_move = s.moves.items[0];
                 s.optimal_score = badness;
             }
@@ -999,21 +1013,21 @@ const Game = struct {
         switch (s.current_piece.type) {
             .J, .L, .T => {
                 s.try_rotations(&[_]Rotation{
-                    .None,
-                    .Right,
-                    .Spin,
-                    .Left,
+                    .none,
+                    .right,
+                    .spin,
+                    .left,
                 }, badness);
             },
             .I, .S, .Z => {
                 s.try_rotations(&[_]Rotation{
-                    .None,
-                    .Right,
+                    .none,
+                    .right,
                 }, badness);
             },
             .O => {
                 s.try_rotations(&[_]Rotation{
-                    .None,
+                    .none,
                 }, badness);
             },
             else => unreachable,
@@ -1021,15 +1035,15 @@ const Game = struct {
     }
 
     fn set_optimal_move(s: *Game) void {
-        const S = struct {
+        const Static = struct {
             var last_pieces_locked: u64 = undefined;
-            var last_piecetype: PieceType = .None;
-            var last_holding: PieceType = .None;
+            var last_piecetype: Piecetype = .none;
+            var last_holding: Piecetype = .none;
         };
 
-        if (s.pieces_locked == S.last_pieces_locked) {
-            const lt = S.last_piecetype;
-            const lh = S.last_holding;
+        if (s.pieces_locked == Static.last_pieces_locked) {
+            const lt = Static.last_piecetype;
+            const lh = Static.last_holding;
             const ct = s.current_piece.type;
             const ch = s.current_holding;
             if ((lt == ct and lh == ch) or (lt == ch and lh == ct)) return;
@@ -1037,11 +1051,11 @@ const Game = struct {
 
         // dirty initialization
         s.optimal_move = s.current_piece;
-        s.optimal_score = std.math.maxInt(i32);
+        s.optimal_score = Math.maxInt(i32);
 
-        S.last_pieces_locked = s.pieces_locked;
-        S.last_piecetype = s.current_piece.type;
-        S.last_holding = s.current_holding;
+        Static.last_pieces_locked = s.pieces_locked;
+        Static.last_piecetype = s.current_piece.type;
+        Static.last_holding = s.current_holding;
 
         s.least_bad_moves(0);
         s.hold_piece();
@@ -1049,48 +1063,49 @@ const Game = struct {
         s.hold_piece();
     }
 
-    // fully automatic play but with a fixed delay for each action taken
+    // fully automatic play but with a fixed
+    // delay for each action taken
     fn fully_automatic_delayed(s: *Game, comptime DELAY: u64) void {
-        const S = struct {
+        const Static = struct {
             var last_time: u64 = 0;
         };
 
         const time_passed: u64 = s.game_timer.read();
         // reset when game timer has been reset
-        if (time_passed <= DELAY) S.last_time = time_passed;
+        if (time_passed <= DELAY) Static.last_time = time_passed;
 
-        const ok = (time_passed - S.last_time) >= DELAY;
+        const ok = (time_passed - Static.last_time) >= DELAY;
         if (!ok) return;
 
         const types = s.optimal_move.type != s.current_piece.type;
         if (types) {
             s.hold_piece();
-            S.last_time = time_passed;
+            Static.last_time = time_passed;
             return;
         }
 
         const rotation = s.current_piece.rotation != s.optimal_move.rotation;
         if (rotation) {
             s.current_piece.rotation = s.optimal_move.rotation;
-            S.last_time = time_passed;
+            Static.last_time = time_passed;
             return;
         }
 
         const col = s.optimal_move.position.col;
         const right = s.current_piece.position.col < col;
         if (right and s.move_right()) {
-            S.last_time = time_passed;
+            Static.last_time = time_passed;
             return;
         }
 
         const left = s.current_piece.position.col > col;
         if (left and s.move_left()) {
-            S.last_time = time_passed;
+            Static.last_time = time_passed;
             return;
         }
 
         s.hard_drop();
-        S.last_time = time_passed;
+        Static.last_time = time_passed;
     }
 
     fn fully_automatic_fast(s: *Game) void {
@@ -1106,48 +1121,47 @@ const Game = struct {
         s.set_optimal_move();
         switch (s.zigtris_bot.state) {
             .off => {},
-            .slow => s.fully_automatic_delayed(100 * std.time.ns_per_ms),
-            .medium => s.fully_automatic_delayed(50 * std.time.ns_per_ms),
+            .slow => s.fully_automatic_delayed(100 * Time.ns_per_ms),
+            .medium => s.fully_automatic_delayed(50 * Time.ns_per_ms),
             .fast => s.fully_automatic_fast(),
         }
     }
 };
 
 // rigorous testing :^)
-// waiting for any specific piece will take at most 6 + 6 pieces
-// for example, you just got an I, and you get all other pieces twice first
+// waiting for any specific piece will
+// take at most 6 + 6 pieces for
+// example, you just got an I, and you
+// get all other pieces twice first
 // [I] : [J L O S T Z] : [J L O S T Z] : [I]
 test "piecetypes are satisfyingly random" {
-    const N = PieceType.iterable.len;
+    const N = Piecetype.iterable.len;
     var seen: [N]u8 = .{0} ** N;
-    var r: std.Random.Xoshiro256 = .init(0);
-    for (1..std.math.maxInt(u8)) |i| {
+    var r: Xoshiro256 = .init(0);
+    for (1..Math.maxInt(u8)) |i| {
         for (0..N) |_| {
-            const t = PieceType.random(r.random());
+            const t = Piecetype.random(r.random());
             const k = @intFromEnum(t);
             seen[k] += 1;
         }
-        for (seen) |b| try std.testing.expectEqual(i, b);
+        for (seen) |b| try Testing.expectEqual(i, b);
     }
 }
 
 test "clear lines" {
-    var g: Game = try .init(std.testing.allocator);
+    var g: Game = try .init(Testing.allocator);
     defer g.deinit();
     g.reset();
-    const empty: [ROWS][COLUMNS]PieceType = .{.{.None} ** COLUMNS} ** ROWS;
-    for (empty, g.grid) |a, b|
-        try std.testing.expect(std.mem.eql(PieceType, &a, &b));
-
+    const empty: [ROWS][COLUMNS]Piecetype = .{.{.none} ** COLUMNS} ** ROWS;
+    for (empty, g.grid) |a, b| try Testing.expectEqual(a, b);
     for (0..ROWS) |r| {
         for (0..COLUMNS) |c| {
             g.grid[r][c] = .O;
         }
     }
     const c = g.clear_lines();
-    try std.testing.expectEqual(c, 20);
-    for (empty, g.grid) |a, b|
-        try std.testing.expect(std.mem.eql(PieceType, &a, &b));
+    try Testing.expectEqual(c, 20);
+    for (empty, g.grid) |a, b| try Testing.expectEqual(a, b);
 }
 
 // simple SDL renderer wrapper
@@ -1181,18 +1195,18 @@ const Renderer = struct {
         width: usize,
         height: usize,
     ) void {
-        var rectangle = C.SDL_Rect{
-            .x = C.int(x),
-            .y = C.int(y),
-            .w = C.int(width),
-            .h = C.int(height),
+        var rectangle = C.SDL_FRect{
+            .x = C.float(x),
+            .y = C.float(y),
+            .w = C.float(width),
+            .h = C.float(height),
         };
         _ = C.SDL_RenderFillRect(s.renderer, &rectangle);
     }
 
     fn fill_square(s: *Renderer, x: usize, y: usize) void {
         switch (s.game.current_style) {
-            .Solid => {
+            .solid => {
                 s.fill_rectangle(
                     s.game.BSIZE + x * s.game.BSIZE,
                     s.game.BSIZE + y * s.game.BSIZE,
@@ -1200,7 +1214,7 @@ const Renderer = struct {
                     s.game.SIZE,
                 );
             },
-            .Gridless => {
+            .gridless => {
                 s.fill_rectangle(
                     s.game.BSIZE + x * s.game.BSIZE,
                     s.game.BSIZE + y * s.game.BSIZE,
@@ -1208,7 +1222,7 @@ const Renderer = struct {
                     s.game.SIZE,
                 );
             },
-            .Boxes => {
+            .boxes => {
                 const c = s.color;
                 s.fill_rectangle(
                     s.game.BSIZE + x * s.game.BSIZE,
@@ -1225,7 +1239,7 @@ const Renderer = struct {
                 );
                 s.set_color(c);
             },
-            .Edges => {
+            .edges => {
                 const c = s.color;
                 s.fill_rectangle(
                     s.game.BSIZE + x * s.game.BSIZE,
@@ -1246,34 +1260,35 @@ const Renderer = struct {
     }
 
     fn draw_lines_cleared(s: *Renderer, current_lines: u64) !void {
-        const S = struct {
+        const Static = struct {
             var colorname: Colorscheme.Name = undefined;
             var lines: u64 = 1 << 63;
             var text: ?*C.SDL_Texture = null;
-            var rect: C.SDL_Rect = undefined;
+            var rect: C.SDL_FRect = undefined;
         };
-        const lines_equal = current_lines == S.lines;
-        const colors_equal = S.colorname == s.game.current_colorscheme.name;
+        const lines_equal = current_lines == Static.lines;
+        const colors_equal =
+            Static.colorname == s.game.current_colorscheme.name;
         if (lines_equal and colors_equal) {
             // re-use renderered
             if (s.force_redraw == 0) {
-                _ = C.SDL_RenderCopy(
+                _ = C.SDL_RenderTexture(
                     s.renderer,
-                    S.text,
+                    Static.text,
                     null,
-                    &S.rect,
+                    &Static.rect,
                 );
                 return;
             }
             s.force_redraw -= 1;
         }
 
-        var buffer: [64]u8 = .{0} ** 64;
+        var buffer: [MAX_LENGTH_U64]u8 = .{' '} ** MAX_LENGTH_U64;
         const col_offset = s.game.BSIZE * COLUMNS + 3 * s.game.SIZE;
         const row_offset = s.game.BSIZE * (ROWS - 6);
-        _ = std.fmt.bufPrint(
+        _ = Standard.fmt.bufPrint(
             &buffer,
-            "{any}",
+            "{}",
             .{current_lines},
         ) catch unreachable;
         const c = s.game.current_colorscheme.palette.F;
@@ -1284,11 +1299,16 @@ const Renderer = struct {
             .a = 0xff,
         };
         const surface =
-            C.TTF_RenderText_Blended(s.font, &buffer, color) orelse {
+            C.TTF_RenderText_Blended(
+                s.font,
+                &buffer,
+                MAX_LENGTH_U64,
+                color,
+            ) orelse {
                 C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
                 return error.SDLRenderFailed;
             };
-        defer C.SDL_FreeSurface(surface);
+        defer C.SDL_DestroySurface(surface);
         const text =
             C.SDL_CreateTextureFromSurface(s.renderer, surface) orelse {
                 C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
@@ -1296,20 +1316,20 @@ const Renderer = struct {
             };
         const tw = surface.*.w;
         const th = surface.*.h;
-        var r = C.SDL_Rect{
-            .x = C.int(col_offset),
-            .y = C.int(row_offset),
-            .w = tw,
-            .h = th,
+        var r = C.SDL_FRect{
+            .x = C.float(col_offset),
+            .y = C.float(row_offset),
+            .w = C.float(tw),
+            .h = C.float(th),
         };
-        _ = C.SDL_RenderCopy(s.renderer, text, null, &r);
+        _ = C.SDL_RenderTexture(s.renderer, text, null, &r);
 
         // keep previous rendered stuff
-        C.SDL_DestroyTexture(S.text);
-        S.colorname = s.game.current_colorscheme.name;
-        S.lines = current_lines;
-        S.text = text;
-        S.rect = r;
+        C.SDL_DestroyTexture(Static.text);
+        Static.colorname = s.game.current_colorscheme.name;
+        Static.lines = current_lines;
+        Static.text = text;
+        Static.rect = r;
     }
 
     fn draw_time_passed(
@@ -1317,32 +1337,33 @@ const Renderer = struct {
         current_time: u64,
         highlight: bool,
     ) !void {
-        const S = struct {
+        const Static = struct {
             var colorname: Colorscheme.Name = undefined;
             var time: u64 = undefined;
             var text: ?*C.SDL_Texture = null;
-            var rect: C.SDL_Rect = undefined;
+            var rect: C.SDL_FRect = undefined;
         };
-        const time_equal = current_time == S.time;
-        const colors_equal = S.colorname == s.game.current_colorscheme.name;
+        const time_equal = current_time == Static.time;
+        const colors_equal =
+            Static.colorname == s.game.current_colorscheme.name;
         if (time_equal and colors_equal) {
             // re-use renderered
             if (s.force_redraw == 0) {
-                _ = C.SDL_RenderCopy(
+                _ = C.SDL_RenderTexture(
                     s.renderer,
-                    S.text,
+                    Static.text,
                     null,
-                    &S.rect,
+                    &Static.rect,
                 );
                 return;
             }
             s.force_redraw -= 1;
         }
 
-        var buffer: [64]u8 = .{0} ** 64;
+        var buffer: [MAX_LENGTH_U64]u8 = .{' '} ** MAX_LENGTH_U64;
         const col_offset = s.game.BSIZE * COLUMNS + 3 * s.game.SIZE;
         const row_offset = s.game.BSIZE * (ROWS - 4);
-        _ = std.fmt.bufPrint(
+        _ = Standard.fmt.bufPrint(
             &buffer,
             "{}",
             .{current_time},
@@ -1358,11 +1379,16 @@ const Renderer = struct {
             .a = 0xff,
         };
         const surface =
-            C.TTF_RenderText_Blended(s.font, &buffer, color) orelse {
+            C.TTF_RenderText_Blended(
+                s.font,
+                &buffer,
+                MAX_LENGTH_U64,
+                color,
+            ) orelse {
                 C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
                 return error.SDLRenderFailed;
             };
-        defer C.SDL_FreeSurface(surface);
+        defer C.SDL_DestroySurface(surface);
         const text =
             C.SDL_CreateTextureFromSurface(s.renderer, surface) orelse {
                 C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
@@ -1370,26 +1396,26 @@ const Renderer = struct {
             };
         const tw = surface.*.w;
         const th = surface.*.h;
-        var r = C.SDL_Rect{
-            .x = C.int(col_offset),
-            .y = C.int(row_offset),
-            .w = tw,
-            .h = th,
+        var r = C.SDL_FRect{
+            .x = C.float(col_offset),
+            .y = C.float(row_offset),
+            .w = C.float(tw),
+            .h = C.float(th),
         };
-        _ = C.SDL_RenderCopy(s.renderer, text, null, &r);
+        _ = C.SDL_RenderTexture(s.renderer, text, null, &r);
 
         // keep previous rendered stuff
-        C.SDL_DestroyTexture(S.text);
-        S.colorname = s.game.current_colorscheme.name;
-        S.time = current_time;
-        S.text = text;
-        S.rect = r;
+        C.SDL_DestroyTexture(Static.text);
+        Static.colorname = s.game.current_colorscheme.name;
+        Static.time = current_time;
+        Static.text = text;
+        Static.rect = r;
     }
 
     fn draw_grid(s: *Renderer) void {
         // basically the outline
         switch (s.game.current_style) {
-            .Solid => {
+            .solid => {
                 s.set_color(s.game.current_colorscheme.palette.F);
                 s.fill_rectangle(
                     s.game.SIZE,
@@ -1429,13 +1455,12 @@ const Renderer = struct {
     fn draw_ghost(
         s: *Renderer,
         p: Position,
-        t: PieceType,
+        t: Piecetype,
         r: Rotation,
     ) void {
-        const millis: f64 = @floatFromInt(std.time.milliTimestamp());
-        const timestamp: f64 = millis / 1024;
-        const pi: f64 = std.math.pi;
-        const ratio: u8 = @intFromFloat(96 * @abs(@sin(pi * timestamp)));
+        const timestamp: f64 = @floatFromInt(Time.milliTimestamp());
+        const ratio: u8 =
+            @intFromFloat(96 * @abs(@sin(Math.pi * timestamp / 1024)));
         var gcc = s.game.current_colorscheme;
         const piece_color = gcc.from_piecetype(t);
         const background = gcc.palette.B;
@@ -1448,7 +1473,7 @@ const Renderer = struct {
         s: *Renderer,
         col: i8,
         row: i8,
-        t: PieceType,
+        t: Piecetype,
         r: Rotation,
     ) void {
         const o = Offsets.get(t, r);
@@ -1460,23 +1485,23 @@ const Renderer = struct {
     }
 
     fn show(s: *Renderer) void {
-        C.SDL_RenderPresent(s.renderer);
+        _ = C.SDL_RenderPresent(s.renderer);
         C.SDL_Delay(0);
     }
 };
 
 const Keyboard = struct {
-    const INITIAL_DELAY: u64 = 112 * std.time.ns_per_ms;
-    const REPEAT_DELAY: u64 = 16 * std.time.ns_per_ms;
+    const INITIAL_DELAY: u64 = 112 * Time.ns_per_ms;
+    const REPEAT_DELAY: u64 = 16 * Time.ns_per_ms;
 
-    var holding: [C.SDL_NUM_SCANCODES]bool = .{false} ** C.SDL_NUM_SCANCODES;
+    var holding: [C.SDL_SCANCODE_COUNT]bool = .{false} ** C.SDL_SCANCODE_COUNT;
     var repeating = false;
 
-    var keys: [*c]const u8 = undefined;
-    var timer: std.time.Timer = undefined;
+    var keys: [*c]const bool = undefined;
+    var timer: Timer = undefined;
 
     fn single(k: C.SDL_Scancode) bool {
-        if (keys[k] == 0) {
+        if (!keys[k]) {
             holding[k] = false;
             return false;
         }
@@ -1488,7 +1513,7 @@ const Keyboard = struct {
     }
 
     fn repeats(k: C.SDL_Scancode) bool {
-        if (keys[k] == 0) {
+        if (!keys[k]) {
             holding[k] = false;
             return false;
         }
@@ -1514,32 +1539,27 @@ const Keyboard = struct {
     fn handle_input(g: *Game, r: *Renderer) !bool {
         var event: C.SDL_Event = undefined;
 
-        while (C.SDL_PollEvent(&event) != 0) {
+        while (C.SDL_PollEvent(&event)) {
             switch (event.type) {
-                C.SDL_QUIT => {
+                C.SDL_EVENT_QUIT => {
                     return true;
                 },
-                C.SDL_WINDOWEVENT => {
-                    switch (event.window.event) {
-                        C.SDL_WINDOWEVENT_SIZE_CHANGED => {
-                            // we resize based on the smaller dimension, but
-                            // keep the width : height ratio into account
-                            const d1: usize = @intCast(event.window.data1);
-                            const d2: usize = @intCast(event.window.data2);
-                            const width = (d1 * RATIO_HEIGHT) / RATIO_WIDTH;
-                            const height = d2;
-                            const dimension = @min(width, height);
-                            g.SIZE =
-                                (dimension - (g.BORDER * RATIO_HEIGHT)) /
-                                RATIO_HEIGHT;
-                            g.BORDER = @max(g.SIZE / 42, 1);
-                            g.BSIZE = g.SIZE + g.BORDER;
-                            const font = sdl2_ttf(g) catch unreachable;
-                            r.font = font;
-                            r.force_redraw = 3;
-                        },
-                        else => {},
-                    }
+                C.SDL_EVENT_WINDOW_RESIZED => {
+                    // we resize based on the smaller dimension, but
+                    // keep the width : height ratio into account
+                    const d1: usize = @intCast(event.window.data1);
+                    const d2: usize = @intCast(event.window.data2);
+                    const width = (d1 * RATIO_HEIGHT) / RATIO_WIDTH;
+                    const height = d2;
+                    const dimension = @min(width, height);
+                    g.SIZE =
+                        (dimension - (g.BORDER * RATIO_HEIGHT)) /
+                        RATIO_HEIGHT;
+                    g.BORDER = @max(g.SIZE / 42, 1);
+                    g.BSIZE = g.SIZE + g.BORDER;
+                    const font = sdl3_ttf(g) catch unreachable;
+                    r.font = font;
+                    r.force_redraw = 3;
                 },
                 else => {},
             }
@@ -1552,10 +1572,10 @@ const Keyboard = struct {
         if (single(C.SDL_SCANCODE_F4)) g.zigtris_bot.state = .fast;
         if (single(C.SDL_SCANCODE_TAB)) g.current_colorscheme.next();
         if (single(C.SDL_SCANCODE_BACKSPACE)) g.current_colorscheme.previous();
-        if (single(C.SDL_SCANCODE_1)) g.current_style = .Solid;
-        if (single(C.SDL_SCANCODE_2)) g.current_style = .Gridless;
-        if (single(C.SDL_SCANCODE_3)) g.current_style = .Boxes;
-        if (single(C.SDL_SCANCODE_4)) g.current_style = .Edges;
+        if (single(C.SDL_SCANCODE_1)) g.current_style = .solid;
+        if (single(C.SDL_SCANCODE_2)) g.current_style = .gridless;
+        if (single(C.SDL_SCANCODE_3)) g.current_style = .boxes;
+        if (single(C.SDL_SCANCODE_4)) g.current_style = .edges;
         if (single(C.SDL_SCANCODE_R)) _ = g.reset();
 
         if (g.zigtris_bot.active()) {
@@ -1582,40 +1602,40 @@ const Keyboard = struct {
     }
 };
 
-fn sdl2_ttf(game: *Game) !*C.TTF_Font {
-    const S = struct {
+fn sdl3_ttf(game: *Game) !*C.TTF_Font {
+    const Static = struct {
         var last_font: ?*C.TTF_Font = null;
     };
 
     const font_memory =
-        C.SDL_RWFromConstMem(FONT_BYTES, FONT_BYTES.len) orelse {
+        C.SDL_IOFromConstMem(FONT_BYTES, FONT_BYTES.len) orelse {
             C.SDL_Log("Unable to SDL_RWFromConstMem: %s", C.SDL_GetError());
             return error.SDLInitializationFailed;
         };
 
-    if (C.TTF_Init() != 0) {
-        C.SDL_Log("Unable to initialize TTF: %s", C.TTF_GetError());
+    if (!C.TTF_Init()) {
+        C.SDL_Log("Unable to initialize TTF: %s", C.SDL_GetError());
         return error.SDLInitializationFailed;
     }
 
     const font: *C.TTF_Font =
-        C.TTF_OpenFontRW(font_memory, 0, C.int(game.SIZE)) orelse {
-            C.SDL_Log("Unable to TTF_OpenFontRW: %s", C.TTF_GetError());
+        C.TTF_OpenFontIO(font_memory, true, C.float(game.SIZE)) orelse {
+            C.SDL_Log("Unable to TTF_OpenFontRW: %s", C.SDL_GetError());
             return error.SDLInitializationFailed;
         };
 
-    C.TTF_CloseFont(S.last_font);
-    S.last_font = font;
+    C.TTF_CloseFont(Static.last_font);
+    Static.last_font = font;
 
     return font;
 }
 
-pub fn sdl2_game(allocator: std.mem.Allocator) !void {
+pub fn sdl2_game(allocator: Allocator) !void {
     var game: Game = try .init(allocator);
     defer game.deinit();
     game.reset();
 
-    if (C.SDL_Init(C.SDL_INIT_VIDEO) != 0) {
+    if (!C.SDL_Init(C.SDL_INIT_VIDEO)) {
         C.SDL_Log("Unable to initialize SDL: %s", C.SDL_GetError());
         return error.SDLInitializationFailed;
     }
@@ -1626,15 +1646,11 @@ pub fn sdl2_game(allocator: std.mem.Allocator) !void {
 
     const screen = C.SDL_CreateWindow(
         "Zigtris",
-        C.SDL_WINDOWPOS_UNDEFINED,
-        C.SDL_WINDOWPOS_UNDEFINED,
         C.int(WINDOW_WIDTH),
         C.int(WINDOW_HEIGHT),
         C.SDL_WINDOW_VULKAN | C.SDL_WINDOW_RESIZABLE,
     ) orelse C.SDL_CreateWindow(
         "Zigtris",
-        C.SDL_WINDOWPOS_UNDEFINED,
-        C.SDL_WINDOWPOS_UNDEFINED,
         C.int(WINDOW_WIDTH),
         C.int(WINDOW_HEIGHT),
         C.SDL_WINDOW_OPENGL | C.SDL_WINDOW_RESIZABLE,
@@ -1645,13 +1661,13 @@ pub fn sdl2_game(allocator: std.mem.Allocator) !void {
     defer C.SDL_DestroyWindow(screen);
 
     const renderer =
-        C.SDL_CreateRenderer(screen, -1, 0) orelse {
+        C.SDL_CreateRenderer(screen, 0) orelse {
             C.SDL_Log("Unable to create renderer: %s", C.SDL_GetError());
             return error.SDLInitializationFailed;
         };
     defer C.SDL_DestroyRenderer(renderer);
 
-    const font = sdl2_ttf(&game) catch unreachable;
+    const font = sdl3_ttf(&game) catch unreachable;
     defer C.TTF_Quit();
     defer C.TTF_CloseFont(font);
 
@@ -1662,9 +1678,9 @@ pub fn sdl2_game(allocator: std.mem.Allocator) !void {
     };
 
     Keyboard.keys = C.SDL_GetKeyboardState(null);
-    Keyboard.timer = try std.time.Timer.start();
+    Keyboard.timer = try .start();
 
-    var last_frame_drawn = try std.time.Timer.start();
+    var last_frame_drawn: Timer = try .start();
 
     var quit: bool = false;
     while (!quit) {
@@ -1713,7 +1729,7 @@ pub fn sdl2_game(allocator: std.mem.Allocator) !void {
                     col_offset,
                     row_offset,
                     t,
-                    .None,
+                    .none,
                 );
             }
 
@@ -1723,24 +1739,29 @@ pub fn sdl2_game(allocator: std.mem.Allocator) !void {
                 col_offset,
                 row_offset,
                 game.current_holding,
-                .None,
+                .none,
             );
 
             r.draw_lines_cleared(game.lines_cleared) catch unreachable;
 
-            // the game is a 40-line sprint + normal game by default, once you
-            // clear 40 lines, the time in milliseconds will remain on the
-            // screen for the rest of that session, R will reset the game.
-            // during the sprint, only seconds will be shown, because seeing
-            // milliseconds printed on the screen at all times is very annoying
+            // the game is a 40-line sprint + normal
+            // game by default, once you clear 40
+            // lines, the time in milliseconds will
+            // remain on the screen for the rest of
+            // that session, R will reset the game.
+            // during the sprint, only seconds will
+            // be shown, because seeing milliseconds
+            // printed on the screen at all times is
+            // very annoying
+
             if (!game.sprint_finished) {
                 if (game.lines_cleared < 40) {
                     const nanoseconds = game.game_timer.read();
-                    const seconds = nanoseconds / std.time.ns_per_s;
+                    const seconds = nanoseconds / Time.ns_per_s;
                     game.sprint_time = seconds;
                 } else {
                     const nanoseconds = game.game_timer.read();
-                    const milliseconds = nanoseconds / std.time.ns_per_ms;
+                    const milliseconds = nanoseconds / Time.ns_per_ms;
                     game.sprint_time = milliseconds;
                     game.sprint_finished = true;
                 }
