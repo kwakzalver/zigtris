@@ -18,9 +18,8 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixos-unstable
 
-    - uses: tweag/run-nix-shell@v0
-      with:
-        run: |
-          zig fmt --check .
-          zig build test
-          zig build -Doptimize=ReleaseSafe
+    - run: |
+      nix develop
+      zig fmt --check .
+      zig build test
+      zig build -Doptimize=ReleaseSafe

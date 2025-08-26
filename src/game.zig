@@ -5,25 +5,26 @@ const Time = Standard.time;
 const Random = Standard.Random;
 const Xoshiro256 = Standard.Random.Xoshiro256;
 const Timer = Standard.time.Timer;
-const ArrayList = Standard.ArrayList;
-const Allocator = Standard.mem.Allocator;
+const ArrayListUnmanaged = Standard.ArrayListUnmanaged;
 
 const Testing = Standard.testing;
 
 const C = @import("c.zig");
+const SDL = C.SDL;
+const TTF = C.TTF;
 
 // the game (you just lost)
 const ROWS = 20;
 const COLUMNS = 10;
 const TARGET_FPS: u64 = 60;
 const TARGET_FPS_DELAY: u64 = Time.ns_per_s / TARGET_FPS;
-const SDL_FRAME_DELAY: u32 = TARGET_FPS_DELAY / Time.ns_per_ms / 2;
+const FRAME_DELAY: u32 = TARGET_FPS_DELAY / Time.ns_per_ms / 2;
 const FONT_BYTES = @embedFile("assets/font.ttf");
 const MAX_LENGTH_U64 = 20;
 
 // aspect ratio for width : height
-const RATIO_WIDTH = COLUMNS + 8;
-const RATIO_HEIGHT = ROWS + 2;
+const RATIO_WIDTH: f32 = COLUMNS + 8;
+const RATIO_HEIGHT: f32 = ROWS + 2;
 
 const ENABLE_GRAVITY = true;
 const GRAVITY_DELAY = Time.ns_per_s;
@@ -610,9 +611,9 @@ const Game = struct {
         }
     };
 
-    SIZE: usize = 42,
-    BORDER: usize = 1,
-    BSIZE: usize = 43,
+    SIZE: f32 = 42.0,
+    BORDER: f32 = 1.0,
+    BSIZE: f32 = 43.0,
 
     grid: [ROWS][COLUMNS]Piecetype = .{.{.none} ** COLUMNS} ** ROWS,
 
@@ -635,24 +636,21 @@ const Game = struct {
     game_timer: Timer,
     gravity_timer: Timer,
 
-    moves: ArrayList(Piece),
-    stack: ArrayList(Piece),
+    moves: ArrayListUnmanaged(Piece),
+    stack: ArrayListUnmanaged(Piece),
 
     xoshiro: Xoshiro256,
 
-    fn init(allocator: Allocator) !Game {
+    fn init() !Game {
+        var moves_buffer: [23]Piece = undefined;
+        var stack_buffer: [23]Piece = undefined;
         return .{
             .game_timer = try .start(),
             .gravity_timer = try .start(),
-            .moves = .init(allocator),
-            .stack = .init(allocator),
+            .moves = .initBuffer(&moves_buffer),
+            .stack = .initBuffer(&stack_buffer),
             .xoshiro = .init(@intCast(Time.milliTimestamp())),
         };
-    }
-
-    fn deinit(s: *Game) void {
-        s.moves.deinit();
-        s.stack.deinit();
     }
 
     fn collision(s: *Game) bool {
@@ -701,8 +699,8 @@ const Game = struct {
     }
 
     fn push(s: *Game) void {
-        s.stack.append(s.current_piece) catch unreachable;
         const p = s.current_piece;
+        s.stack.appendAssumeCapacity(p);
         const o = Offsets.get(p.type, p.rotation);
         for (o.rows, o.cols) |dr, dc| {
             const ri: usize = @intCast(p.position.row + dr);
@@ -712,13 +710,10 @@ const Game = struct {
 
         // shift queue
         s.current_piece = .new(s.current_queue[0]);
-        s.current_queue[0] = s.current_queue[1];
-        s.current_queue[1] = s.current_queue[2];
-        s.current_queue[2] = s.current_queue[3];
+        Standard.mem.rotate(Piecetype, &s.current_queue, 1);
     }
 
     fn pop(s: *Game) void {
-        if (s.stack.items.len == 0) unreachable;
         const p = s.stack.pop().?;
         const o = Offsets.get(p.type, p.rotation);
         for (o.rows, o.cols) |dr, dc| {
@@ -728,18 +723,14 @@ const Game = struct {
         }
 
         // unshift queue
-        s.current_queue[3] = s.current_queue[2];
-        s.current_queue[2] = s.current_queue[1];
-        s.current_queue[1] = s.current_queue[0];
+        Standard.mem.rotate(Piecetype, &s.current_queue, 3);
         s.current_queue[0] = s.current_piece.type;
         s.current_piece = p;
     }
 
     fn next_piece(s: *Game) void {
         s.current_piece = .new(s.current_queue[0]);
-        s.current_queue[0] = s.current_queue[1];
-        s.current_queue[1] = s.current_queue[2];
-        s.current_queue[2] = s.current_queue[3];
+        Standard.mem.rotate(Piecetype, &s.current_queue, 1);
         s.current_queue[3] = Piecetype.random(s.xoshiro.random());
         if (s.collision()) {
             // game over!
@@ -773,6 +764,18 @@ const Game = struct {
         return s.move_delta(.{ .row = 1, .col = 0 });
     }
 
+    fn update_time(s: *Game) void {
+        if (!s.sprint_finished) {
+            const nanoseconds = s.game_timer.read();
+            if (s.lines_cleared < 40) {
+                s.sprint_time = nanoseconds / Time.ns_per_s;
+            } else {
+                s.sprint_finished = true;
+                s.sprint_time = nanoseconds / Time.ns_per_ms;
+            }
+        }
+    }
+
     fn gravity_tick(s: *Game) void {
         if (s.move_down()) return;
         s.piece_lock();
@@ -790,12 +793,15 @@ const Game = struct {
         const r = s.xoshiro.random();
         s.current_piece = .new(Piecetype.random(r));
         s.current_holding = Piecetype.random(r);
-        s.current_queue[0] = Piecetype.random(r);
-        s.current_queue[1] = Piecetype.random(r);
-        s.current_queue[2] = Piecetype.random(r);
-        s.current_queue[3] = Piecetype.random(r);
+        s.current_queue = .{
+            Piecetype.random(r),
+            Piecetype.random(r),
+            Piecetype.random(r),
+            Piecetype.random(r),
+        };
 
         s.stack.shrinkRetainingCapacity(0);
+        s.moves.shrinkRetainingCapacity(0);
 
         s.game_timer.reset();
         s.gravity_timer.reset();
@@ -962,7 +968,7 @@ const Game = struct {
 
     fn try_move(s: *Game, badness: i32) void {
         s.soft_drop();
-        s.moves.append(s.current_piece) catch unreachable;
+        s.moves.appendAssumeCapacity(s.current_piece);
         s.push();
         const b = s.compute_score(s.current_piece);
         s.least_bad_moves((b + badness) >> 1);
@@ -1149,8 +1155,7 @@ test "piecetypes are satisfyingly random" {
 }
 
 test "clear lines" {
-    var g: Game = try .init(Testing.allocator);
-    defer g.deinit();
+    var g: Game = try .init();
     g.reset();
     const empty: [ROWS][COLUMNS]Piecetype = .{.{.none} ** COLUMNS} ** ROWS;
     for (empty, g.grid) |a, b| try Testing.expectEqual(a, b);
@@ -1164,18 +1169,38 @@ test "clear lines" {
     for (empty, g.grid) |a, b| try Testing.expectEqual(a, b);
 }
 
+test "bot speed" {
+    var g: Game = try .init();
+    g.reset();
+    g.zigtris_bot.state = .fast;
+    // a perfect clear 40-line sprint is 100 pieces
+    var usage_moves: usize = 0;
+    var usage_stack: usize = 0;
+    for (0..120) |_| {
+        g.fully_automatic();
+        g.update_time();
+        usage_moves = @max(usage_moves, g.moves.items.len);
+        usage_stack = @max(usage_stack, g.stack.items.len);
+    }
+    // testing seems to happen at debug build speeds
+    try Testing.expect(g.sprint_finished);
+    try Testing.expect(g.sprint_time < 30 * Time.ns_per_s);
+    try Testing.expect(usage_moves < 10);
+    try Testing.expect(usage_stack < 10);
+}
+
 // simple SDL renderer wrapper
 const Renderer = struct {
     game: *Game,
-    renderer: ?*C.SDL_Renderer,
-    font: ?*C.TTF_Font,
+    renderer: ?*SDL.Renderer,
+    font: ?*TTF.Font,
 
     color: Color = undefined,
     force_redraw: u8 = 0,
 
     fn set_color(s: *Renderer, c: Color) void {
         s.color = c;
-        _ = C.SDL_SetRenderDrawColor(
+        _ = SDL.SetRenderDrawColor(
             s.renderer,
             c.red,
             c.green,
@@ -1185,26 +1210,26 @@ const Renderer = struct {
     }
 
     fn clear(s: *Renderer) void {
-        _ = C.SDL_RenderClear(s.renderer);
+        _ = SDL.RenderClear(s.renderer);
     }
 
     fn fill_rectangle(
         s: *Renderer,
-        x: usize,
-        y: usize,
-        width: usize,
-        height: usize,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
     ) void {
-        var rectangle = C.SDL_FRect{
-            .x = C.float(x),
-            .y = C.float(y),
-            .w = C.float(width),
-            .h = C.float(height),
+        var rectangle = SDL.FRect{
+            .x = x,
+            .y = y,
+            .w = width,
+            .h = height,
         };
-        _ = C.SDL_RenderFillRect(s.renderer, &rectangle);
+        _ = SDL.RenderFillRect(s.renderer, &rectangle);
     }
 
-    fn fill_square(s: *Renderer, x: usize, y: usize) void {
+    fn fill_square(s: *Renderer, x: f32, y: f32) void {
         switch (s.game.current_style) {
             .solid => {
                 s.fill_rectangle(
@@ -1232,10 +1257,10 @@ const Renderer = struct {
                 );
                 s.set_color(s.game.current_colorscheme.palette.B);
                 s.fill_rectangle(
-                    s.game.BSIZE + x * s.game.BSIZE + (s.game.SIZE >> 2),
-                    s.game.BSIZE + y * s.game.BSIZE + (s.game.SIZE >> 2),
-                    s.game.SIZE >> 1,
-                    s.game.SIZE >> 1,
+                    s.game.BSIZE + x * s.game.BSIZE + (s.game.SIZE / 4),
+                    s.game.BSIZE + y * s.game.BSIZE + (s.game.SIZE / 4),
+                    s.game.SIZE / 2,
+                    s.game.SIZE / 2,
                 );
                 s.set_color(c);
             },
@@ -1263,8 +1288,8 @@ const Renderer = struct {
         const Static = struct {
             var colorname: Colorscheme.Name = undefined;
             var lines: u64 = 1 << 63;
-            var text: ?*C.SDL_Texture = null;
-            var rect: C.SDL_FRect = undefined;
+            var text: ?*SDL.Texture = null;
+            var rect: SDL.FRect = undefined;
         };
         const lines_equal = current_lines == Static.lines;
         const colors_equal =
@@ -1272,7 +1297,7 @@ const Renderer = struct {
         if (lines_equal and colors_equal) {
             // re-use renderered
             if (s.force_redraw == 0) {
-                _ = C.SDL_RenderTexture(
+                _ = SDL.RenderTexture(
                     s.renderer,
                     Static.text,
                     null,
@@ -1292,40 +1317,40 @@ const Renderer = struct {
             .{current_lines},
         ) catch unreachable;
         const c = s.game.current_colorscheme.palette.F;
-        const color = C.SDL_Color{
+        const color = SDL.Color{
             .r = c.red,
             .g = c.green,
             .b = c.blue,
             .a = 0xff,
         };
         const surface =
-            C.TTF_RenderText_Blended(
+            TTF.RenderText_Blended(
                 s.font,
                 &buffer,
                 MAX_LENGTH_U64,
                 color,
             ) orelse {
-                C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+                SDL.Log("TTF.RenderText_Blended: %s", SDL.GetError());
                 return error.SDLRenderFailed;
             };
-        defer C.SDL_DestroySurface(surface);
+        defer SDL.DestroySurface(surface);
         const text =
-            C.SDL_CreateTextureFromSurface(s.renderer, surface) orelse {
-                C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+            SDL.CreateTextureFromSurface(s.renderer, surface) orelse {
+                SDL.Log("SDL.CreateTextureFromSurface: %s", SDL.GetError());
                 return error.SDLRenderFailed;
             };
-        const tw = surface.*.w;
-        const th = surface.*.h;
-        var r = C.SDL_FRect{
-            .x = C.float(col_offset),
-            .y = C.float(row_offset),
-            .w = C.float(tw),
-            .h = C.float(th),
+        const tw: f32 = @floatFromInt(surface.*.w);
+        const th: f32 = @floatFromInt(surface.*.h);
+        var r = SDL.FRect{
+            .x = col_offset,
+            .y = row_offset,
+            .w = tw,
+            .h = th,
         };
-        _ = C.SDL_RenderTexture(s.renderer, text, null, &r);
+        _ = SDL.RenderTexture(s.renderer, text, null, &r);
 
         // keep previous rendered stuff
-        C.SDL_DestroyTexture(Static.text);
+        SDL.DestroyTexture(Static.text);
         Static.colorname = s.game.current_colorscheme.name;
         Static.lines = current_lines;
         Static.text = text;
@@ -1339,9 +1364,9 @@ const Renderer = struct {
     ) !void {
         const Static = struct {
             var colorname: Colorscheme.Name = undefined;
-            var time: u64 = undefined;
-            var text: ?*C.SDL_Texture = null;
-            var rect: C.SDL_FRect = undefined;
+            var time: u64 = Math.maxInt(u64);
+            var text: ?*SDL.Texture = null;
+            var rect: SDL.FRect = undefined;
         };
         const time_equal = current_time == Static.time;
         const colors_equal =
@@ -1349,7 +1374,7 @@ const Renderer = struct {
         if (time_equal and colors_equal) {
             // re-use renderered
             if (s.force_redraw == 0) {
-                _ = C.SDL_RenderTexture(
+                _ = SDL.RenderTexture(
                     s.renderer,
                     Static.text,
                     null,
@@ -1372,40 +1397,40 @@ const Renderer = struct {
             false => s.game.current_colorscheme.palette.F,
             true => s.game.current_colorscheme.palette.T,
         };
-        const color = C.SDL_Color{
+        const color = SDL.Color{
             .r = c.red,
             .g = c.green,
             .b = c.blue,
             .a = 0xff,
         };
         const surface =
-            C.TTF_RenderText_Blended(
+            TTF.RenderText_Blended(
                 s.font,
                 &buffer,
                 MAX_LENGTH_U64,
                 color,
             ) orelse {
-                C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+                SDL.Log("TTF.RenderText_Blended: %s", SDL.GetError());
                 return error.SDLRenderFailed;
             };
-        defer C.SDL_DestroySurface(surface);
+        defer SDL.DestroySurface(surface);
         const text =
-            C.SDL_CreateTextureFromSurface(s.renderer, surface) orelse {
-                C.SDL_Log("Unable to render texture: %s", C.SDL_GetError());
+            SDL.CreateTextureFromSurface(s.renderer, surface) orelse {
+                SDL.Log("SDL.CreateTextureFromSurface: %s", SDL.GetError());
                 return error.SDLRenderFailed;
             };
-        const tw = surface.*.w;
-        const th = surface.*.h;
-        var r = C.SDL_FRect{
-            .x = C.float(col_offset),
-            .y = C.float(row_offset),
-            .w = C.float(tw),
-            .h = C.float(th),
+        const tw: f32 = @floatFromInt(surface.*.w);
+        const th: f32 = @floatFromInt(surface.*.h);
+        var r = SDL.FRect{
+            .x = col_offset,
+            .y = row_offset,
+            .w = tw,
+            .h = th,
         };
-        _ = C.SDL_RenderTexture(s.renderer, text, null, &r);
+        _ = SDL.RenderTexture(s.renderer, text, null, &r);
 
         // keep previous rendered stuff
-        C.SDL_DestroyTexture(Static.text);
+        SDL.DestroyTexture(Static.text);
         Static.colorname = s.game.current_colorscheme.name;
         Static.time = current_time;
         Static.text = text;
@@ -1447,7 +1472,10 @@ const Renderer = struct {
                 const t = s.game.grid[r][c];
                 const color = s.game.current_colorscheme.from_piecetype(t);
                 s.set_color(color);
-                s.fill_square(c, r);
+                s.fill_square(
+                    @floatFromInt(c),
+                    @floatFromInt(r),
+                );
             }
         }
     }
@@ -1480,13 +1508,16 @@ const Renderer = struct {
         for (o.rows, o.cols) |dr, dc| {
             const ci: usize = @intCast(col + dc);
             const ri: usize = @intCast(row + dr);
-            s.fill_square(ci, ri);
+            s.fill_square(
+                @floatFromInt(ci),
+                @floatFromInt(ri),
+            );
         }
     }
 
     fn show(s: *Renderer) void {
-        _ = C.SDL_RenderPresent(s.renderer);
-        C.SDL_Delay(0);
+        _ = SDL.RenderPresent(s.renderer);
+        SDL.Delay(0);
     }
 };
 
@@ -1494,13 +1525,13 @@ const Keyboard = struct {
     const INITIAL_DELAY: u64 = 112 * Time.ns_per_ms;
     const REPEAT_DELAY: u64 = 16 * Time.ns_per_ms;
 
-    var holding: [C.SDL_SCANCODE_COUNT]bool = .{false} ** C.SDL_SCANCODE_COUNT;
+    var holding: [SDL.SCANCODE_COUNT]bool = .{false} ** SDL.SCANCODE_COUNT;
     var repeating = false;
 
     var keys: [*c]const bool = undefined;
     var timer: Timer = undefined;
 
-    fn single(k: C.SDL_Scancode) bool {
+    fn single(k: SDL.Scancode) bool {
         if (!keys[k]) {
             holding[k] = false;
             return false;
@@ -1512,7 +1543,7 @@ const Keyboard = struct {
         return true;
     }
 
-    fn repeats(k: C.SDL_Scancode) bool {
+    fn repeats(k: SDL.Scancode) bool {
         if (!keys[k]) {
             holding[k] = false;
             return false;
@@ -1537,18 +1568,18 @@ const Keyboard = struct {
     }
 
     fn handle_input(g: *Game, r: *Renderer) !bool {
-        var event: C.SDL_Event = undefined;
+        var event: SDL.Event = undefined;
 
-        while (C.SDL_PollEvent(&event)) {
+        while (SDL.PollEvent(&event)) {
             switch (event.type) {
-                C.SDL_EVENT_QUIT => {
+                SDL.EVENT_QUIT => {
                     return true;
                 },
-                C.SDL_EVENT_WINDOW_RESIZED => {
+                SDL.EVENT_WINDOW_RESIZED => {
                     // we resize based on the smaller dimension, but
                     // keep the width : height ratio into account
-                    const d1: usize = @intCast(event.window.data1);
-                    const d2: usize = @intCast(event.window.data2);
+                    const d1: f32 = @floatFromInt(event.window.data1);
+                    const d2: f32 = @floatFromInt(event.window.data2);
                     const width = (d1 * RATIO_HEIGHT) / RATIO_WIDTH;
                     const height = d2;
                     const dimension = @min(width, height);
@@ -1565,18 +1596,18 @@ const Keyboard = struct {
             }
         }
 
-        if (single(C.SDL_SCANCODE_ESCAPE)) return true;
-        if (single(C.SDL_SCANCODE_F1)) g.zigtris_bot.state = .off;
-        if (single(C.SDL_SCANCODE_F2)) g.zigtris_bot.state = .slow;
-        if (single(C.SDL_SCANCODE_F3)) g.zigtris_bot.state = .medium;
-        if (single(C.SDL_SCANCODE_F4)) g.zigtris_bot.state = .fast;
-        if (single(C.SDL_SCANCODE_TAB)) g.current_colorscheme.next();
-        if (single(C.SDL_SCANCODE_BACKSPACE)) g.current_colorscheme.previous();
-        if (single(C.SDL_SCANCODE_1)) g.current_style = .solid;
-        if (single(C.SDL_SCANCODE_2)) g.current_style = .gridless;
-        if (single(C.SDL_SCANCODE_3)) g.current_style = .boxes;
-        if (single(C.SDL_SCANCODE_4)) g.current_style = .edges;
-        if (single(C.SDL_SCANCODE_R)) _ = g.reset();
+        if (single(SDL.SCANCODE_ESCAPE)) return true;
+        if (single(SDL.SCANCODE_F1)) g.zigtris_bot.state = .off;
+        if (single(SDL.SCANCODE_F2)) g.zigtris_bot.state = .slow;
+        if (single(SDL.SCANCODE_F3)) g.zigtris_bot.state = .medium;
+        if (single(SDL.SCANCODE_F4)) g.zigtris_bot.state = .fast;
+        if (single(SDL.SCANCODE_TAB)) g.current_colorscheme.next();
+        if (single(SDL.SCANCODE_BACKSPACE)) g.current_colorscheme.previous();
+        if (single(SDL.SCANCODE_1)) g.current_style = .solid;
+        if (single(SDL.SCANCODE_2)) g.current_style = .gridless;
+        if (single(SDL.SCANCODE_3)) g.current_style = .boxes;
+        if (single(SDL.SCANCODE_4)) g.current_style = .edges;
+        if (single(SDL.SCANCODE_R)) _ = g.reset();
 
         if (g.zigtris_bot.active()) {
             g.fully_automatic();
@@ -1584,92 +1615,91 @@ const Keyboard = struct {
         }
 
         // Player controls start here.
-        if (single(C.SDL_SCANCODE_RCTRL)) _ = g.hold_piece();
-        if (single(C.SDL_SCANCODE_A)) _ = g.rotate_left();
-        if (single(C.SDL_SCANCODE_D)) _ = g.spin();
-        if (single(C.SDL_SCANCODE_UP)) _ = g.rotate_right();
-        if (single(C.SDL_SCANCODE_DOWN)) _ = g.soft_drop();
-        if (single(C.SDL_SCANCODE_SPACE)) _ = g.hard_drop();
+        if (single(SDL.SCANCODE_RCTRL)) _ = g.hold_piece();
+        if (single(SDL.SCANCODE_A)) _ = g.rotate_left();
+        if (single(SDL.SCANCODE_D)) _ = g.spin();
+        if (single(SDL.SCANCODE_UP)) _ = g.rotate_right();
+        if (single(SDL.SCANCODE_DOWN)) _ = g.soft_drop();
+        if (single(SDL.SCANCODE_SPACE)) _ = g.hard_drop();
 
-        if (repeats(C.SDL_SCANCODE_LEFT)) _ = g.move_left();
-        if (repeats(C.SDL_SCANCODE_RIGHT)) _ = g.move_right();
+        if (repeats(SDL.SCANCODE_LEFT)) _ = g.move_left();
+        if (repeats(SDL.SCANCODE_RIGHT)) _ = g.move_right();
 
-        const left = holding[C.SDL_SCANCODE_LEFT];
-        const right = holding[C.SDL_SCANCODE_RIGHT];
+        const left = holding[SDL.SCANCODE_LEFT];
+        const right = holding[SDL.SCANCODE_RIGHT];
         repeating = repeating and (left or right);
 
         return false;
     }
 };
 
-fn sdl3_ttf(game: *Game) !*C.TTF_Font {
+fn sdl3_ttf(game: *Game) !*TTF.Font {
     const Static = struct {
-        var last_font: ?*C.TTF_Font = null;
+        var last_font: ?*TTF.Font = null;
     };
 
     const font_memory =
-        C.SDL_IOFromConstMem(FONT_BYTES, FONT_BYTES.len) orelse {
-            C.SDL_Log("Unable to SDL_RWFromConstMem: %s", C.SDL_GetError());
+        SDL.IOFromConstMem(FONT_BYTES, FONT_BYTES.len) orelse {
+            SDL.Log("SDL.IOFromConstMem: %s", SDL.GetError());
             return error.SDLInitializationFailed;
         };
 
-    if (!C.TTF_Init()) {
-        C.SDL_Log("Unable to initialize TTF: %s", C.SDL_GetError());
+    if (!TTF.Init()) {
+        SDL.Log("TTF.Init: %s", SDL.GetError());
         return error.SDLInitializationFailed;
     }
 
-    const font: *C.TTF_Font =
-        C.TTF_OpenFontIO(font_memory, true, C.float(game.SIZE)) orelse {
-            C.SDL_Log("Unable to TTF_OpenFontRW: %s", C.SDL_GetError());
+    const font: *TTF.Font =
+        TTF.OpenFontIO(font_memory, true, game.SIZE) orelse {
+            SDL.Log("TTF.OpenFontIO: %s", SDL.GetError());
             return error.SDLInitializationFailed;
         };
 
-    C.TTF_CloseFont(Static.last_font);
+    TTF.CloseFont(Static.last_font);
     Static.last_font = font;
 
     return font;
 }
 
-pub fn sdl2_game(allocator: Allocator) !void {
-    var game: Game = try .init(allocator);
-    defer game.deinit();
+pub fn sdl3_game() !void {
+    var game: Game = try .init();
     game.reset();
 
-    if (!C.SDL_Init(C.SDL_INIT_VIDEO)) {
-        C.SDL_Log("Unable to initialize SDL: %s", C.SDL_GetError());
+    if (!SDL.Init(SDL.INIT_VIDEO)) {
+        SDL.Log("SDL.Init: %s", SDL.GetError());
         return error.SDLInitializationFailed;
     }
-    defer C.SDL_Quit();
+    defer SDL.Quit();
 
-    const WINDOW_WIDTH: usize = RATIO_WIDTH * game.BSIZE;
-    const WINDOW_HEIGHT: usize = RATIO_HEIGHT * game.BSIZE;
+    const WINDOW_WIDTH: f32 = RATIO_WIDTH * game.BSIZE;
+    const WINDOW_HEIGHT: f32 = RATIO_HEIGHT * game.BSIZE;
 
-    const screen = C.SDL_CreateWindow(
+    const screen = SDL.CreateWindow(
         "Zigtris",
-        C.int(WINDOW_WIDTH),
-        C.int(WINDOW_HEIGHT),
-        C.SDL_WINDOW_VULKAN | C.SDL_WINDOW_RESIZABLE,
-    ) orelse C.SDL_CreateWindow(
+        @intFromFloat(WINDOW_WIDTH),
+        @intFromFloat(WINDOW_HEIGHT),
+        SDL.WINDOW_VULKAN | SDL.WINDOW_RESIZABLE,
+    ) orelse SDL.CreateWindow(
         "Zigtris",
-        C.int(WINDOW_WIDTH),
-        C.int(WINDOW_HEIGHT),
-        C.SDL_WINDOW_OPENGL | C.SDL_WINDOW_RESIZABLE,
+        @intFromFloat(WINDOW_WIDTH),
+        @intFromFloat(WINDOW_HEIGHT),
+        SDL.WINDOW_OPENGL | SDL.WINDOW_RESIZABLE,
     ) orelse {
-        C.SDL_Log("Unable to create window: %s", C.SDL_GetError());
+        SDL.Log("SDL.CreateWindow: %s", SDL.GetError());
         return error.SDLInitializationFailed;
     };
-    defer C.SDL_DestroyWindow(screen);
+    defer SDL.DestroyWindow(screen);
 
     const renderer =
-        C.SDL_CreateRenderer(screen, 0) orelse {
-            C.SDL_Log("Unable to create renderer: %s", C.SDL_GetError());
+        SDL.CreateRenderer(screen, 0) orelse {
+            SDL.Log("SDL.CreateRenderer: %s", SDL.GetError());
             return error.SDLInitializationFailed;
         };
-    defer C.SDL_DestroyRenderer(renderer);
+    defer SDL.DestroyRenderer(renderer);
 
     const font = sdl3_ttf(&game) catch unreachable;
-    defer C.TTF_Quit();
-    defer C.TTF_CloseFont(font);
+    defer TTF.Quit();
+    defer TTF.CloseFont(font);
 
     var r: Renderer = .{
         .game = &game,
@@ -1677,7 +1707,7 @@ pub fn sdl2_game(allocator: Allocator) !void {
         .font = font,
     };
 
-    Keyboard.keys = C.SDL_GetKeyboardState(null);
+    Keyboard.keys = SDL.GetKeyboardState(null);
     Keyboard.timer = try .start();
 
     var last_frame_drawn: Timer = try .start();
@@ -1753,19 +1783,7 @@ pub fn sdl2_game(allocator: Allocator) !void {
             // be shown, because seeing milliseconds
             // printed on the screen at all times is
             // very annoying
-
-            if (!game.sprint_finished) {
-                if (game.lines_cleared < 40) {
-                    const nanoseconds = game.game_timer.read();
-                    const seconds = nanoseconds / Time.ns_per_s;
-                    game.sprint_time = seconds;
-                } else {
-                    const nanoseconds = game.game_timer.read();
-                    const milliseconds = nanoseconds / Time.ns_per_ms;
-                    game.sprint_time = milliseconds;
-                    game.sprint_finished = true;
-                }
-            }
+            game.update_time();
             r.draw_time_passed(
                 game.sprint_time,
                 game.sprint_finished,
@@ -1774,6 +1792,6 @@ pub fn sdl2_game(allocator: Allocator) !void {
             r.show();
         }
 
-        if (!game.zigtris_bot.active()) C.SDL_Delay(SDL_FRAME_DELAY);
+        if (!game.zigtris_bot.active()) SDL.Delay(FRAME_DELAY);
     }
 }
