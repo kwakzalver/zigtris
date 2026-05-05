@@ -1,9 +1,14 @@
 const Standard = @import("std");
 
-const C = @cImport({
-    @cInclude("SDL3/SDL.h");
-    @cInclude("SDL3_ttf/SDL_ttf.h");
-});
+const C = @import("C");
+
+pub fn int(a: anytype) i32 {
+    return @intCast(a);
+}
+
+pub fn float(a: anytype) f32 {
+    return @floatFromInt(a);
+}
 
 pub const SDL = struct {
     pub const Color = C.SDL_Color;

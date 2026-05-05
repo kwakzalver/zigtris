@@ -4,10 +4,19 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const mod = b.addModule("zigtris", .{
+    const zigtris = b.addModule("zigtris", .{
         .root_source_file = b.path("src/game.zig"),
         .target = target,
     });
+
+    const sdl = b.addTranslateC(.{
+        .root_source_file = b.path("src/c.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    sdl.linkSystemLibrary("SDL3", .{});
+    sdl.linkSystemLibrary("SDL3_ttf", .{});
+    // sdl.linkSystemLibrary("c", .{});
 
     const exe = b.addExecutable(.{
         .name = "zigtris",
@@ -16,13 +25,17 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .imports = &.{
-                .{ .name = "zigtris", .module = mod },
+                .{
+                    .name = "zigtris",
+                    .module = zigtris,
+                },
+                .{
+                    .name = "C",
+                    .module = sdl.createModule(),
+                },
             },
         }),
     });
-    exe.linkSystemLibrary("SDL3");
-    exe.linkSystemLibrary("SDL3_ttf");
-    exe.linkSystemLibrary("c");
 
     b.installArtifact(exe);
 

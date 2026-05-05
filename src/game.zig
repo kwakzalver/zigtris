@@ -2,9 +2,9 @@ const Standard = @import("std");
 
 const Math = Standard.math;
 const Time = Standard.time;
+const Timestamp = Standard.Io.Timestamp;
 const Random = Standard.Random;
 const Xoshiro256 = Standard.Random.Xoshiro256;
-const Timer = Standard.time.Timer;
 const ArrayListUnmanaged = Standard.ArrayListUnmanaged;
 
 const Testing = Standard.testing;
@@ -17,8 +17,8 @@ const TTF = C.TTF;
 const ROWS = 20;
 const COLUMNS = 10;
 const TARGET_FPS: u64 = 60;
-const TARGET_FPS_DELAY: u64 = Time.ns_per_s / TARGET_FPS;
-const FRAME_DELAY: u64 = TARGET_FPS_DELAY / Time.ns_per_ms / 2;
+const TARGET_FPS_DELAY_MS: u64 = Time.ms_per_s / TARGET_FPS;
+const FRAME_DELAY_MS: u64 = TARGET_FPS_DELAY_MS / 2;
 const FONT_BYTES = @embedFile("assets/font.ttf");
 const MAX_LENGTH_U64 = 20;
 
@@ -26,7 +26,7 @@ const MAX_LENGTH_U64 = 20;
 const RATIO_WIDTH = COLUMNS + 8;
 const RATIO_HEIGHT = ROWS + 2;
 
-const GRAVITY_DELAY = Time.ns_per_s;
+const GRAVITY_DELAY_MS = Time.ms_per_s;
 
 const Style = enum {
     solid,
@@ -376,24 +376,24 @@ const Color = struct {
     blue: u8,
 
     fn from_u24(rgb: u24) Color {
-        const r: u8 = @intCast((rgb >> 16) & 0xff);
-        const g: u8 = @intCast((rgb >> 8) & 0xff);
-        const b: u8 = @intCast((rgb >> 0) & 0xff);
+        const r: u8 = @truncate(rgb >> 0x10);
+        const g: u8 = @truncate(rgb >> 0x08);
+        const b: u8 = @truncate(rgb >> 0x00);
         return .{ .red = r, .green = g, .blue = b };
     }
 
     fn combine(lhs: Color, rhs: Color, l: u8) Color {
-        const r: u8 = (128 - l);
-        const lr: u16 = @intCast(lhs.red);
-        const lg: u16 = @intCast(lhs.green);
-        const lb: u16 = @intCast(lhs.blue);
-        const rr: u16 = @intCast(rhs.red);
-        const rg: u16 = @intCast(rhs.green);
-        const rb: u16 = @intCast(rhs.blue);
+        const r: u8 = 128 - l;
+        const lr: u16 = lhs.red;
+        const lg: u16 = lhs.green;
+        const lb: u16 = lhs.blue;
+        const rr: u16 = rhs.red;
+        const rg: u16 = rhs.green;
+        const rb: u16 = rhs.blue;
 
-        const cr: u8 = @intCast((lr * l + rr * r) / 128);
-        const cg: u8 = @intCast((lg * l + rg * r) / 128);
-        const cb: u8 = @intCast((lb * l + rb * r) / 128);
+        const cr: u8 = @truncate((lr * l + rr * r) >> 7);
+        const cg: u8 = @truncate((lg * l + rg * r) >> 7);
+        const cb: u8 = @truncate((lb * l + rb * r) >> 7);
         return .{ .red = cr, .green = cg, .blue = cb };
     }
 };
@@ -413,129 +413,129 @@ const Palette = struct {
 
     fn habamax() Palette {
         return .{
-            .F = Color.from_u24(0xBCBCBC),
-            .G = Color.from_u24(0x898989),
-            .N = Color.from_u24(0x454545),
-            .B = Color.from_u24(0x1C1C1C),
-            .I = Color.from_u24(0xD75F5F),
-            .J = Color.from_u24(0xBC796C),
-            .L = Color.from_u24(0xA19379),
-            .O = Color.from_u24(0x87AF87),
-            .S = Color.from_u24(0x79A194),
-            .T = Color.from_u24(0x6B93A1),
-            .Z = Color.from_u24(0x5F87AF),
+            .F = .from_u24(0xBCBCBC),
+            .G = .from_u24(0x898989),
+            .N = .from_u24(0x454545),
+            .B = .from_u24(0x1C1C1C),
+            .I = .from_u24(0xD75F5F),
+            .J = .from_u24(0xBC796C),
+            .L = .from_u24(0xA19379),
+            .O = .from_u24(0x87AF87),
+            .S = .from_u24(0x79A194),
+            .T = .from_u24(0x6B93A1),
+            .Z = .from_u24(0x5F87AF),
         };
     }
 
     fn habamin() Palette {
         return .{
-            .F = Color.from_u24(0x1C1C1C),
-            .G = Color.from_u24(0x454545),
-            .N = Color.from_u24(0xABABAB),
-            .B = Color.from_u24(0xCDCDCD),
-            .I = Color.from_u24(0xD75F5F),
-            .J = Color.from_u24(0xBC796C),
-            .L = Color.from_u24(0xA19379),
-            .O = Color.from_u24(0x87AF87),
-            .S = Color.from_u24(0x79A194),
-            .T = Color.from_u24(0x6B93A1),
-            .Z = Color.from_u24(0x5F87AF),
+            .F = .from_u24(0x1C1C1C),
+            .G = .from_u24(0x454545),
+            .N = .from_u24(0xABABAB),
+            .B = .from_u24(0xCDCDCD),
+            .I = .from_u24(0xD75F5F),
+            .J = .from_u24(0xBC796C),
+            .L = .from_u24(0xA19379),
+            .O = .from_u24(0x87AF87),
+            .S = .from_u24(0x79A194),
+            .T = .from_u24(0x6B93A1),
+            .Z = .from_u24(0x5F87AF),
         };
     }
 
     fn gruvbox_dark() Palette {
         return .{
-            .F = Color.from_u24(0xEBDBB2),
-            .G = Color.from_u24(0xB6AC90),
-            .N = Color.from_u24(0x5B5648),
-            .B = Color.from_u24(0x282828),
-            .I = Color.from_u24(0xCC241D),
-            .J = Color.from_u24(0xD65D0E),
-            .L = Color.from_u24(0xD79921),
-            .O = Color.from_u24(0x98971A),
-            .S = Color.from_u24(0x689D6A),
-            .T = Color.from_u24(0x458588),
-            .Z = Color.from_u24(0xB16286),
+            .F = .from_u24(0xEBDBB2),
+            .G = .from_u24(0xB6AC90),
+            .N = .from_u24(0x5B5648),
+            .B = .from_u24(0x282828),
+            .I = .from_u24(0xCC241D),
+            .J = .from_u24(0xD65D0E),
+            .L = .from_u24(0xD79921),
+            .O = .from_u24(0x98971A),
+            .S = .from_u24(0x689D6A),
+            .T = .from_u24(0x458588),
+            .Z = .from_u24(0xB16286),
         };
     }
 
     fn gruvbox_light() Palette {
         return .{
-            .F = Color.from_u24(0x282828),
-            .G = Color.from_u24(0x5B5648),
-            .N = Color.from_u24(0xB6AC90),
-            .B = Color.from_u24(0xEBDBB2),
-            .I = Color.from_u24(0xCC241D),
-            .J = Color.from_u24(0xD65D0E),
-            .L = Color.from_u24(0xD79921),
-            .O = Color.from_u24(0x98971A),
-            .S = Color.from_u24(0x689D6A),
-            .T = Color.from_u24(0x458588),
-            .Z = Color.from_u24(0xB16286),
+            .F = .from_u24(0x282828),
+            .G = .from_u24(0x5B5648),
+            .N = .from_u24(0xB6AC90),
+            .B = .from_u24(0xEBDBB2),
+            .I = .from_u24(0xCC241D),
+            .J = .from_u24(0xD65D0E),
+            .L = .from_u24(0xD79921),
+            .O = .from_u24(0x98971A),
+            .S = .from_u24(0x689D6A),
+            .T = .from_u24(0x458588),
+            .Z = .from_u24(0xB16286),
         };
     }
 
     fn onedark() Palette {
         return .{
-            .F = Color.from_u24(0xABB2BF),
-            .G = Color.from_u24(0x8C94A2),
-            .N = Color.from_u24(0x464A51),
-            .B = Color.from_u24(0x282C34),
-            .I = Color.from_u24(0xE06C75),
-            .J = Color.from_u24(0xE29678),
-            .L = Color.from_u24(0xE5C07B),
-            .O = Color.from_u24(0x98C379),
-            .S = Color.from_u24(0x56B6C2),
-            .T = Color.from_u24(0x61AFEF),
-            .Z = Color.from_u24(0xC678DD),
+            .F = .from_u24(0xABB2BF),
+            .G = .from_u24(0x8C94A2),
+            .N = .from_u24(0x464A51),
+            .B = .from_u24(0x282C34),
+            .I = .from_u24(0xE06C75),
+            .J = .from_u24(0xE29678),
+            .L = .from_u24(0xE5C07B),
+            .O = .from_u24(0x98C379),
+            .S = .from_u24(0x56B6C2),
+            .T = .from_u24(0x61AFEF),
+            .Z = .from_u24(0xC678DD),
         };
     }
 
     fn onelight() Palette {
         return .{
-            .F = Color.from_u24(0x101012),
-            .G = Color.from_u24(0x383a42),
-            .N = Color.from_u24(0xc9c9c9),
-            .B = Color.from_u24(0xfafafa),
-            .I = Color.from_u24(0xE06C75),
-            .J = Color.from_u24(0xE29678),
-            .L = Color.from_u24(0xE5C07B),
-            .O = Color.from_u24(0x98C379),
-            .S = Color.from_u24(0x56B6C2),
-            .T = Color.from_u24(0x61AFEF),
-            .Z = Color.from_u24(0xC678DD),
+            .F = .from_u24(0x101012),
+            .G = .from_u24(0x383a42),
+            .N = .from_u24(0xc9c9c9),
+            .B = .from_u24(0xfafafa),
+            .I = .from_u24(0xE06C75),
+            .J = .from_u24(0xE29678),
+            .L = .from_u24(0xE5C07B),
+            .O = .from_u24(0x98C379),
+            .S = .from_u24(0x56B6C2),
+            .T = .from_u24(0x61AFEF),
+            .Z = .from_u24(0xC678DD),
         };
     }
 
     fn pastel_dark() Palette {
         return .{
-            .F = Color.from_u24(0xFFFFFC),
-            .G = Color.from_u24(0xDDDDDA),
-            .N = Color.from_u24(0x222233),
-            .B = Color.from_u24(0x111122),
-            .I = Color.from_u24(0xFFADAD),
-            .J = Color.from_u24(0xFFD6A5),
-            .L = Color.from_u24(0xFDFFB6),
-            .O = Color.from_u24(0xCAFFBF),
-            .S = Color.from_u24(0x9BF6FF),
-            .T = Color.from_u24(0xA0C4FF),
-            .Z = Color.from_u24(0xBDB2FF),
+            .F = .from_u24(0xFFFFFC),
+            .G = .from_u24(0xDDDDDA),
+            .N = .from_u24(0x222233),
+            .B = .from_u24(0x111122),
+            .I = .from_u24(0xFFADAD),
+            .J = .from_u24(0xFFD6A5),
+            .L = .from_u24(0xFDFFB6),
+            .O = .from_u24(0xCAFFBF),
+            .S = .from_u24(0x9BF6FF),
+            .T = .from_u24(0xA0C4FF),
+            .Z = .from_u24(0xBDB2FF),
         };
     }
 
     fn pastel_light() Palette {
         return .{
-            .F = Color.from_u24(0x111122),
-            .G = Color.from_u24(0x222233),
-            .N = Color.from_u24(0xDDDDDA),
-            .B = Color.from_u24(0xFFFFFC),
-            .I = Color.from_u24(0xFF9DAD),
-            .J = Color.from_u24(0xFFC6A5),
-            .L = Color.from_u24(0xEDEEA6),
-            .O = Color.from_u24(0xBAEEAF),
-            .S = Color.from_u24(0x9BE6FF),
-            .T = Color.from_u24(0xA0B4FF),
-            .Z = Color.from_u24(0xBDA2FF),
+            .F = .from_u24(0x111122),
+            .G = .from_u24(0x222233),
+            .N = .from_u24(0xDDDDDA),
+            .B = .from_u24(0xFFFFFC),
+            .I = .from_u24(0xFF9DAD),
+            .J = .from_u24(0xFFC6A5),
+            .L = .from_u24(0xEDEEA6),
+            .O = .from_u24(0xBAEEAF),
+            .S = .from_u24(0x9BE6FF),
+            .T = .from_u24(0xA0B4FF),
+            .Z = .from_u24(0xBDA2FF),
         };
     }
 };
@@ -632,23 +632,29 @@ const Game = struct {
     optimal_move: Piece = undefined,
     optimal_score: i32 = undefined,
 
-    game_timer: Timer,
-    gravity_timer: Timer,
+    io: Standard.Io,
+    game_timestamp: Timestamp,
+    gravity_timestamp: Timestamp,
 
     moves: ArrayListUnmanaged(Piece),
     stack: ArrayListUnmanaged(Piece),
+    // TODO statically allocate these buffers
+    // moves_buffer: [32]Piece = undefined,
+    // stack_buffer: [32]Piece = undefined,
 
     xoshiro: Xoshiro256,
 
-    fn new() !Game {
+    fn new(_io: Standard.Io) !Game {
         var moves_buffer: [23]Piece = undefined;
         var stack_buffer: [23]Piece = undefined;
+        const timestamp: Timestamp = .now(_io, .awake);
         var g: Game = .{
-            .game_timer = try .start(),
-            .gravity_timer = try .start(),
+            .io = _io,
+            .game_timestamp = timestamp,
+            .gravity_timestamp = timestamp,
             .moves = .initBuffer(&moves_buffer),
             .stack = .initBuffer(&stack_buffer),
-            .xoshiro = .init(@intCast(Time.milliTimestamp())),
+            .xoshiro = .init(@intCast(timestamp.toMilliseconds())),
         };
         g.reset();
         return g;
@@ -767,18 +773,18 @@ const Game = struct {
 
     fn update_time(s: *Game) void {
         if (!s.sprint_finished) {
-            const nanoseconds = s.game_timer.read();
+            const milliseconds: u64 = @intCast(s.game_timestamp.untilNow(s.io, .awake).toMilliseconds());
             if (s.lines_cleared < 40) {
-                s.sprint_time = nanoseconds / Time.ns_per_s;
+                s.sprint_time = @divTrunc(milliseconds, Time.ms_per_s);
             } else {
                 s.sprint_finished = true;
-                s.sprint_time = nanoseconds / Time.ns_per_ms;
+                s.sprint_time = milliseconds;
             }
         }
     }
 
     fn gravity_tick(s: *Game) void {
-        s.gravity_timer.reset();
+        s.gravity_timestamp = .now(s.io, .awake);
         if (s.move_down()) return;
         s.piece_lock();
     }
@@ -805,8 +811,8 @@ const Game = struct {
         s.stack.shrinkRetainingCapacity(0);
         s.moves.shrinkRetainingCapacity(0);
 
-        s.game_timer.reset();
-        s.gravity_timer.reset();
+        s.game_timestamp = .now(s.io, .awake);
+        s.gravity_timestamp = .now(s.io, .awake);
 
         s.pieces_locked = 0;
         s.lines_cleared = 0;
@@ -833,7 +839,7 @@ const Game = struct {
         while (s.move_down()) {
             // :^)
         }
-        s.gravity_timer.reset();
+        s.gravity_timestamp = .now(s.io, .awake);
     }
 
     fn unstuck(s: *Game) bool {
@@ -1044,7 +1050,7 @@ const Game = struct {
 
     fn set_optimal_move(s: *Game) void {
         const Static = struct {
-            var last_pieces_locked: u64 = undefined;
+            var last_pieces_locked: u64 = Math.maxInt(u64);
             var last_piecetype: Piecetype = .none;
             var last_holding: Piecetype = .none;
         };
@@ -1073,16 +1079,16 @@ const Game = struct {
 
     // fully automatic play but with a fixed
     // delay for each action taken
-    fn fully_automatic_delayed(s: *Game, comptime DELAY: u64) void {
+    fn fully_automatic_delayed(s: *Game, comptime DELAY_MS: u64) void {
         const Static = struct {
             var last_time: u64 = 0;
         };
 
-        const time_passed: u64 = s.game_timer.read();
+        const time_passed: u64 = @intCast(s.game_timestamp.untilNow(s.io, .awake).toMilliseconds());
         // reset when game timer has been reset
-        if (time_passed <= DELAY) Static.last_time = time_passed;
+        if (time_passed <= DELAY_MS) Static.last_time = time_passed;
 
-        const ok = (time_passed - Static.last_time) >= DELAY;
+        const ok = (time_passed - Static.last_time) >= DELAY_MS;
         if (!ok) return;
 
         const types = s.optimal_move.type != s.current_piece.type;
@@ -1129,8 +1135,8 @@ const Game = struct {
         s.set_optimal_move();
         switch (s.zigtris_bot.state) {
             .off => {},
-            .slow => s.fully_automatic_delayed(100 * Time.ns_per_ms),
-            .medium => s.fully_automatic_delayed(50 * Time.ns_per_ms),
+            .slow => s.fully_automatic_delayed(100),
+            .medium => s.fully_automatic_delayed(50),
             .fast => s.fully_automatic_fast(),
         }
     }
@@ -1157,7 +1163,7 @@ test "piecetypes are satisfyingly random" {
 }
 
 test "clear lines" {
-    var g: Game = try .new();
+    var g: Game = try .new(Testing.io);
     const empty: [ROWS][COLUMNS]Piecetype = @splat(@splat(.none));
     for (empty, g.grid) |a, b| try Testing.expectEqual(a, b);
     for (0..ROWS) |r| {
@@ -1171,9 +1177,9 @@ test "clear lines" {
 }
 
 test "bot speed" {
-    var g: Game = try .new();
+    var g: Game = try .new(Testing.io);
     g.zigtris_bot.state = .fast;
-    // a perfect clear 40-line sprint is 100 pieces
+    // a perfect clear 40-line sprint is 100 pieces, we overshoot with 120
     var usage_moves: u64 = 0;
     var usage_stack: u64 = 0;
     for (0..120) |_| {
@@ -1182,9 +1188,9 @@ test "bot speed" {
         usage_moves = @max(usage_moves, g.moves.items.len);
         usage_stack = @max(usage_stack, g.stack.items.len);
     }
-    // testing seems to happen at debug build speeds
+    // testing seems to happen at debug build speeds, 10 seconds is slow enough
     try Testing.expect(g.sprint_finished);
-    try Testing.expect(g.sprint_time < 30 * Time.ns_per_s);
+    try Testing.expect(g.sprint_time < 10 * Time.ms_per_s);
     try Testing.expect(usage_moves < 10);
     try Testing.expect(usage_stack < 10);
 }
@@ -1193,7 +1199,7 @@ test "bot speed" {
 const View = struct {
     var game: *Game = undefined;
     var renderer: ?*SDL.Renderer = null;
-    var frame_timer: Timer = undefined;
+    var frame_timestamp: Timestamp = undefined;
     var font: ?*TTF.Font = null;
 
     var last_color: Color = undefined;
@@ -1202,7 +1208,7 @@ const View = struct {
     fn init(g: *Game, r: *SDL.Renderer) !void {
         View.game = g;
         View.renderer = r;
-        View.frame_timer = try .start();
+        View.frame_timestamp = .now(g.io, .awake);
         View.update_font() catch unreachable;
     }
 
@@ -1216,7 +1222,7 @@ const View = struct {
         View.impl.draw_lines_cleared() catch unreachable;
         View.impl.draw_time_passed() catch unreachable;
         View.impl.show();
-        View.frame_timer.reset();
+        View.frame_timestamp = .now(game.io, .awake);
     }
 
     fn update_font() !void {
@@ -1271,10 +1277,10 @@ const View = struct {
             height: u64,
         ) void {
             var rectangle = SDL.FRect{
-                .x = @floatFromInt(x),
-                .y = @floatFromInt(y),
-                .w = @floatFromInt(width),
-                .h = @floatFromInt(height),
+                .x = C.float(x),
+                .y = C.float(y),
+                .w = C.float(width),
+                .h = C.float(height),
             };
             _ = SDL.RenderFillRect(View.renderer, &rectangle);
         }
@@ -1286,10 +1292,10 @@ const View = struct {
             height: u64,
         ) void {
             var rectangle = SDL.FRect{
-                .x = @floatFromInt(x),
-                .y = @floatFromInt(y),
-                .w = @floatFromInt(width),
-                .h = @floatFromInt(height),
+                .x = C.float(x),
+                .y = C.float(y),
+                .w = C.float(width),
+                .h = C.float(height),
             };
             _ = SDL.RenderRect(View.renderer, &rectangle);
         }
@@ -1322,8 +1328,8 @@ const View = struct {
             };
             const current_lines = View.game.lines_cleared;
             const lines_equal = current_lines == Static.lines;
-            const colors_equal =
-                Static.colorname == View.game.current_colorscheme.name;
+            const colors_equal = Static.colorname ==
+                View.game.current_colorscheme.name;
             if (lines_equal and colors_equal) {
                 // re-use renderered
                 if (View.force_redraw == 0) {
@@ -1372,10 +1378,10 @@ const View = struct {
             const tw = surface.*.w;
             const th = surface.*.h;
             var r = SDL.FRect{
-                .x = @floatFromInt(col_offset),
-                .y = @floatFromInt(row_offset),
-                .w = @floatFromInt(tw),
-                .h = @floatFromInt(th),
+                .x = C.float(col_offset),
+                .y = C.float(row_offset),
+                .w = C.float(tw),
+                .h = C.float(th),
             };
             _ = SDL.RenderTexture(View.renderer, text, null, &r);
 
@@ -1456,10 +1462,10 @@ const View = struct {
             const tw = surface.*.w;
             const th = surface.*.h;
             var r = SDL.FRect{
-                .x = @floatFromInt(col_offset),
-                .y = @floatFromInt(row_offset),
-                .w = @floatFromInt(tw),
-                .h = @floatFromInt(th),
+                .x = C.float(col_offset),
+                .y = C.float(row_offset),
+                .w = C.float(tw),
+                .h = C.float(th),
             };
             _ = SDL.RenderTexture(View.renderer, text, null, &r);
 
@@ -1517,7 +1523,7 @@ const View = struct {
             const piece = View.game.current_piece;
             const t = piece.type;
             const r = piece.rotation;
-            const timestamp: f64 = @floatFromInt(Time.milliTimestamp());
+            const timestamp: f64 = @floatFromInt(Timestamp.now(game.io, .awake).toMilliseconds());
             const ratio: u8 =
                 @intFromFloat(96 * @abs(@sin(Math.pi * timestamp / 1024)));
             const gcc = View.game.current_colorscheme;
@@ -1529,7 +1535,7 @@ const View = struct {
         }
 
         fn draw_current_piece() void {
-            const timestamp: f64 = @floatFromInt(Time.milliTimestamp());
+            const timestamp: f64 = @floatFromInt(Timestamp.now(game.io, .awake).toMilliseconds());
             const ratio: u8 =
                 @intFromFloat(96 * @abs(@sin(Math.pi * timestamp / 1024)));
             const gcc = View.game.current_colorscheme;
@@ -1596,18 +1602,22 @@ const View = struct {
 };
 
 const Keyboard = struct {
-    const INITIAL_DELAY: u64 = 112 * Time.ns_per_ms;
-    const REPEAT_DELAY: u64 = 16 * Time.ns_per_ms;
+    // delays in milliseconds
+    const INITIAL_DELAY_MS: u64 = 112;
+    const REPEAT_DELAY_MS: u64 = 16;
+
+    var io: Standard.Io = undefined;
 
     var holding: [SDL.SCANCODE_COUNT]bool = @splat(false);
     var repeating = false;
 
     var keys: [*c]const bool = undefined;
-    var timer: Timer = undefined;
+    var timestamp: Timestamp = undefined;
 
-    fn init() !void {
+    fn init(_io: Standard.Io) !void {
+        Keyboard.io = _io;
         Keyboard.keys = SDL.GetKeyboardState(null);
-        Keyboard.timer = try .start();
+        Keyboard.timestamp = .now(io, .awake);
     }
 
     fn single(k: SDL.Scancode) bool {
@@ -1630,18 +1640,18 @@ const Keyboard = struct {
 
         if (!holding[k]) {
             holding[k] = true;
-            timer.reset();
+            timestamp = .now(io, .awake);
             return true;
         }
 
-        const duration: u64 = timer.read();
+        const duration: u64 = @intCast(timestamp.untilNow(io, .awake).toMilliseconds());
         if (repeating) {
-            if (duration < REPEAT_DELAY) return false;
-            timer.reset();
+            if (duration < REPEAT_DELAY_MS) return false;
+            timestamp = .now(io, .awake);
             return true;
         }
 
-        if (duration >= INITIAL_DELAY) repeating = true;
+        if (duration >= INITIAL_DELAY_MS) repeating = true;
 
         return false;
     }
@@ -1711,7 +1721,7 @@ const Keyboard = struct {
     }
 };
 
-pub fn sdl3_game() !void {
+pub fn sdl3_game(io: Standard.Io) !void {
     if (!SDL.Init(SDL.INIT_VIDEO)) {
         SDL.Log("SDL.Init: %s", SDL.GetError());
         return error.SDLInitializationFailed;
@@ -1737,22 +1747,24 @@ pub fn sdl3_game() !void {
     };
     defer SDL.DestroyRenderer(renderer);
 
-    var g: Game = try .new();
+    var g: Game = try .new(io);
     try View.init(&g, renderer);
-    try Keyboard.init();
+    try Keyboard.init(io);
 
     while (true) {
-        const gravity_tick = g.gravity_timer.read() >= GRAVITY_DELAY;
+        const millis: u64 = @intCast(g.gravity_timestamp.untilNow(io, .awake).toMilliseconds());
+        const gravity_tick = millis >= GRAVITY_DELAY_MS;
         if (gravity_tick) g.gravity_tick();
 
         const quit = try Keyboard.handle_input(&g, w.?);
         if (quit) break;
         g.update_time();
 
-        const frame_tick = View.frame_timer.read() >= TARGET_FPS_DELAY;
+        const duration: u64 = @intCast(View.frame_timestamp.untilNow(io, .awake).toMilliseconds());
+        const frame_tick = duration >= TARGET_FPS_DELAY_MS;
         if (frame_tick) View.next_frame();
 
-        if (!g.zigtris_bot.active()) SDL.Delay(FRAME_DELAY);
+        if (!g.zigtris_bot.active()) SDL.Delay(FRAME_DELAY_MS);
     }
 
     TTF.CloseFont(View.font);
